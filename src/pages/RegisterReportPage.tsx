@@ -210,6 +210,7 @@ export function RegisterReportPage() {
           if (!formData.reporterRole) {
             newErrors.reporterRole = 'Selecione o seu cargo no Grupo Bairral.';
           }
+        } else if (formData.isBairralEmployee === 'NO') {
           if (!formData.relationshipToHospital) {
             newErrors.relationshipToHospital = 'Selecione a sua relação com o Grupo Bairral.';
           }
@@ -789,9 +790,7 @@ export function RegisterReportPage() {
                         type="button"
                         onClick={() => {
                           updateField('isBairralEmployee', 'YES');
-                          if (!formData.relationshipToHospital) {
-                            updateField('relationshipToHospital', 'EMPLOYEE');
-                          }
+                          updateField('relationshipToHospital', 'EMPLOYEE');
                         }}
                         className={`px-4 py-2 text-xs font-bold rounded-md border flex items-center gap-2 transition-all cursor-pointer ${
                           formData.isBairralEmployee === 'YES'
@@ -810,7 +809,7 @@ export function RegisterReportPage() {
                         onClick={() => {
                           updateField('isBairralEmployee', 'NO');
                           if (formData.relationshipToHospital === 'EMPLOYEE') {
-                            updateField('relationshipToHospital', 'PATIENT');
+                            updateField('relationshipToHospital', '');
                           }
                         }}
                         className={`px-4 py-2 text-xs font-bold rounded-md border flex items-center gap-2 transition-all cursor-pointer ${
@@ -870,51 +869,32 @@ export function RegisterReportPage() {
                         </FormField>
                       </div>
 
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <FormField>
-                          <FormLabel required error={!!errors.reporterRole}>
-                            Cargo no Grupo Bairral
-                          </FormLabel>
-                          <Select
-                            value={formData.reporterRole}
-                            onChange={(e) => updateField('reporterRole', e.target.value)}
-                            options={[
-                              { label: 'Selecione seu cargo...', value: '' },
-                              { label: 'Enfermeiro(a)', value: 'Enfermeiro(a)' },
-                              { label: 'Técnico(a) de Enfermagem', value: 'Técnico(a) de Enfermagem' },
-                              { label: 'Auxiliar de Enfermagem', value: 'Auxiliar de Enfermagem' },
-                              { label: 'Médico(a) Psiquiatra / Clínico', value: 'Médico(a) Psiquiatra / Clínico' },
-                              { label: 'Psicólogo(a)', value: 'Psicólogo(a)' },
-                              { label: 'Assistente Social', value: 'Assistente Social' },
-                              { label: 'Terapeuta Ocupacional', value: 'Terapeuta Ocupacional' },
-                              { label: 'Farmacêutico(a)', value: 'Farmacêutico(a)' },
-                              { label: 'Nutricionista', value: 'Nutricionista' },
-                              { label: 'Administrativo / RH / Financeiro', value: 'Administrativo / RH / Financeiro' },
-                              { label: 'Manutenção / Higienização / Cozinha', value: 'Manutenção / Higienização / Cozinha' },
-                              { label: 'Gestor / Coordenador / Liderança', value: 'Gestor / Coordenador / Liderança' },
-                              { label: 'Outro Cargo', value: 'Outro Cargo' },
-                            ]}
-                          />
-                          <FormMessage error={errors.reporterRole} />
-                        </FormField>
-
-                        <FormField>
-                          <FormLabel required error={!!errors.relationshipToHospital}>
-                            Sua Relação com o Grupo Bairral
-                          </FormLabel>
-                          <Select
-                            value={formData.relationshipToHospital}
-                            onChange={(e) => updateField('relationshipToHospital', e.target.value)}
-                            options={[
-                              { label: 'Colaborador / Funcionário (CLT)', value: 'EMPLOYEE' },
-                              { label: 'Prestador de Serviços Terceirizado', value: 'SUPPLIER' },
-                              { label: 'Estagiário / Residente', value: 'OTHER' },
-                              { label: 'Corpo Clínico / Credenciado', value: 'EMPLOYEE' },
-                            ]}
-                          />
-                          <FormMessage error={errors.relationshipToHospital} />
-                        </FormField>
-                      </div>
+                      <FormField>
+                        <FormLabel required error={!!errors.reporterRole}>
+                          Cargo no Grupo Bairral
+                        </FormLabel>
+                        <Select
+                          value={formData.reporterRole}
+                          onChange={(e) => updateField('reporterRole', e.target.value)}
+                          options={[
+                            { label: 'Selecione seu cargo...', value: '' },
+                            { label: 'Enfermeiro(a)', value: 'Enfermeiro(a)' },
+                            { label: 'Técnico(a) de Enfermagem', value: 'Técnico(a) de Enfermagem' },
+                            { label: 'Auxiliar de Enfermagem', value: 'Auxiliar de Enfermagem' },
+                            { label: 'Médico(a) Psiquiatra / Clínico', value: 'Médico(a) Psiquiatra / Clínico' },
+                            { label: 'Psicólogo(a)', value: 'Psicólogo(a)' },
+                            { label: 'Assistente Social', value: 'Assistente Social' },
+                            { label: 'Terapeuta Ocupacional', value: 'Terapeuta Ocupacional' },
+                            { label: 'Farmacêutico(a)', value: 'Farmacêutico(a)' },
+                            { label: 'Nutricionista', value: 'Nutricionista' },
+                            { label: 'Administrativo / RH / Financeiro', value: 'Administrativo / RH / Financeiro' },
+                            { label: 'Manutenção / Higienização / Cozinha', value: 'Manutenção / Higienização / Cozinha' },
+                            { label: 'Gestor / Coordenador / Liderança', value: 'Gestor / Coordenador / Liderança' },
+                            { label: 'Outro Cargo', value: 'Outro Cargo' },
+                          ]}
+                        />
+                        <FormMessage error={errors.reporterRole} />
+                      </FormField>
                     </div>
                   )}
 
@@ -959,6 +939,25 @@ export function RegisterReportPage() {
                           <FormMessage error={errors.reporterPhone} />
                         </FormField>
                       </div>
+
+                      <FormField>
+                        <FormLabel required error={!!errors.relationshipToHospital}>
+                          Sua Relação com o Grupo Bairral
+                        </FormLabel>
+                        <Select
+                          value={formData.relationshipToHospital}
+                          onChange={(e) => updateField('relationshipToHospital', e.target.value)}
+                          options={[
+                            { label: 'Selecione sua relação com o hospital...', value: '' },
+                            { label: 'Paciente / Ex-paciente', value: 'PATIENT' },
+                            { label: 'Familiar / Acompanhante de Paciente', value: 'FAMILY_MEMBER' },
+                            { label: 'Fornecedor / Prestador de Serviços Terceirizado', value: 'SUPPLIER' },
+                            { label: 'Comunidade / Visitante', value: 'COMMUNITY' },
+                            { label: 'Outro Vínculo', value: 'OTHER' },
+                          ]}
+                        />
+                        <FormMessage error={errors.relationshipToHospital} />
+                      </FormField>
                     </div>
                   )}
                 </div>
@@ -1423,8 +1422,15 @@ export function RegisterReportPage() {
           {/* Wizard Footer Controls */}
           <div className="pt-6 border-t border-[#E5E5E5] flex items-center justify-between gap-3">
             {currentStep > 0 ? (
-              <Button type="button" variant="outline" size="sm" onClick={handlePrev} disabled={isSubmitting}>
-                <ArrowLeft className="w-4 h-4 mr-1.5" /> Anterior
+              <Button
+                type="button"
+                variant="primary"
+                size="sm"
+                onClick={handlePrev}
+                disabled={isSubmitting}
+                leftIcon={<ArrowLeft className="w-4 h-4" />}
+              >
+                Anterior
               </Button>
             ) : (
               <Button type="button" variant="ghost" size="sm" onClick={handleCancel}>
@@ -1433,8 +1439,14 @@ export function RegisterReportPage() {
             )}
 
             {currentStep < 6 ? (
-              <Button type="button" variant="primary" size="sm" onClick={handleNext}>
-                Próxima Etapa <ArrowRight className="w-4 h-4 ml-1.5" />
+              <Button
+                type="button"
+                variant="primary"
+                size="sm"
+                onClick={handleNext}
+                rightIcon={<ArrowRight className="w-4 h-4" />}
+              >
+                Próxima Etapa
               </Button>
             ) : (
               <Button
