@@ -28,7 +28,7 @@ export function AdminLayout({ children }: AdminLayoutProps) {
       {/* Conteúdo Principal Ajustável ao Tamanho da Sidebar */}
       <div
         className={cn(
-          'flex-1 flex flex-col transition-all duration-300',
+          'flex-1 flex flex-col transition-[margin-left] duration-300 ease-in-out will-change-[margin-left]',
           isSidebarCollapsed ? 'md:ml-16' : 'md:ml-64'
         )}
       >
