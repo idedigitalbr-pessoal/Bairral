@@ -1,0 +1,1218 @@
+import React, { useState, useEffect, useCallback } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import {
+  FilePlus,
+  ShieldCheck,
+  ArrowLeft,
+  ArrowRight,
+  Send,
+  AlertCircle,
+  CheckCircle2,
+  Copy,
+  Check,
+  Printer,
+  Eye,
+  EyeOff,
+  HelpCircle,
+  Lock,
+  FileText,
+  AlertTriangle,
+  Loader2,
+  Building,
+  Edit3,
+  User,
+  UserCheck,
+  Mail,
+  Phone,
+  ShieldAlert,
+  MessageSquare,
+  Sparkles,
+  Search,
+} from 'lucide-react';
+import { Container } from '../components/ui/Container';
+import { Surface } from '../components/ui/Surface';
+import { Typography } from '../components/ui/Typography';
+import { Steps } from '../components/navigation/Steps';
+import { FormField, FormLabel, FormDescription, FormMessage } from '../components/forms/FormField';
+import { Input } from '../components/forms/Input';
+import { Textarea } from '../components/forms/Textarea';
+import { Select } from '../components/forms/Select';
+import { RadioGroup } from '../components/forms/RadioGroup';
+import { Checkbox } from '../components/forms/Checkbox';
+import { FileUpload, UploadedFileItem } from '../components/forms/FileUpload';
+import { Button } from '../components/ui/Button';
+import { Badge } from '../components/data-display/Badge';
+import { categoriesService } from '../services/categoriesService';
+import { unitsService } from '../services/unitsService';
+import { publicService, RegisterPublicReportResponse } from '../services/publicService';
+import { Category, Unit, ReportTypeEnum, RegistrationTypeEnum } from '../types';
+
+// ==========================================
+// ESTRUTURA E TIPOS DO FORMULÁRIO
+// ==========================================
+
+export interface PublicReportFormData {
+  type: string; // DENUNCIA, RECLAMACAO, SUGESTAO, ELOGIO, DUVIDA, SOLICITACAO
+  registrationType: string; // ANONYMOUS, CONFIDENTIAL, IDENTIFIED
+  categoryId: string;
+  unitId: string;
+  department: string;
+  location: string;
+  relationshipToHospital: string; // EMPLOYEE, PATIENT, FAMILY_MEMBER, SUPPLIER, COMMUNITY, OTHER
+  title: string;
+  description: string;
+  approximateDate: string;
+  approximateTime: string;
+  involvedPersons: string;
+  witnesses: string;
+  isRecurrent: string; // YES, NO, UNSURE
+  hasImmediateRisk: string; // YES, NO
+  previousAttempt: string; // YES, NO
+  previousAttemptDetails: string;
+  attachments: UploadedFileItem[];
+  reporterName: string;
+  reporterEmail: string;
+  reporterPhone: string;
+  contactPreference: string; // EMAIL, PHONE, WHATSAPP
+  acceptedTerms: boolean;
+}
+
+const initialFormData: PublicReportFormData = {
+  type: '',
+  registrationType: 'ANONYMOUS',
+  categoryId: '',
+  unitId: '',
+  department: '',
+  location: '',
+  relationshipToHospital: 'EMPLOYEE',
+  title: '',
+  description: '',
+  approximateDate: '',
+  approximateTime: '',
+  involvedPersons: '',
+  witnesses: '',
+  isRecurrent: 'NO',
+  hasImmediateRisk: 'NO',
+  previousAttempt: 'NO',
+  previousAttemptDetails: '',
+  attachments: [],
+  reporterName: '',
+  reporterEmail: '',
+  reporterPhone: '',
+  contactPreference: 'EMAIL',
+  acceptedTerms: false,
+};
+
+export function RegisterReportPage() {
+  const navigate = useNavigate();
+  const [currentStep, setCurrentStep] = useState<number>(0);
+  const [formData, setFormData] = useState<PublicReportFormData>(initialFormData);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // Categorias e Unidades carregadas via API / MSW
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [units, setUnits] = useState<Unit[]>([]);
+  const [loadingOptions, setLoadingOptions] = useState<boolean>(true);
+
+  // Estado de envio
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [submissionResult, setSubmissionResult] = useState<RegisterPublicReportResponse | null>(null);
+
+  // Estados da Tela de Confirmação
+  const [showAccessKey, setShowAccessKey] = useState<boolean>(false);
+  const [copiedProtocol, setCopiedProtocol] = useState<boolean>(false);
+  const [copiedKey, setCopiedKey] = useState<boolean>(false);
+  const [copiedAll, setCopiedAll] = useState<boolean>(false);
+
+  // Carregar dados de categorias e unidades
+  useEffect(() => {
+    let isMounted = true;
+    setLoadingOptions(true);
+    Promise.all([
+      categoriesService.getCategories().catch(() => []),
+      unitsService.getUnits().catch(() => []),
+    ]).then(([cats, uns]) => {
+      if (isMounted) {
+        if (Array.isArray(cats) && cats.length > 0) setCategories(cats);
+        if (Array.isArray(uns) && uns.length > 0) setUnits(uns);
+        setLoadingOptions(false);
+      }
+    });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // Prevenção de abandono acidental com dados preenchidos
+  const hasUnsavedChanges =
+    formData.title.trim() !== '' ||
+    formData.description.trim() !== '' ||
+    formData.type !== '' ||
+    formData.attachments.length > 0;
+
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (hasUnsavedChanges && !submissionResult) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [hasUnsavedChanges, submissionResult]);
+
+  // Atualizar campo do formulário
+  const updateField = <K extends keyof PublicReportFormData>(field: K, value: PublicReportFormData[K]) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
+    if (errors[field]) {
+      setErrors((prev) => {
+        const next = { ...prev };
+        delete next[field];
+        return next;
+      });
+    }
+  };
+
+  // ==========================================
+  // VALIDAÇÕES POR ETAPA (Zod pattern / Step Validation)
+  // ==========================================
+  const validateStep = (step: number): boolean => {
+    const newErrors: Record<string, string> = {};
+
+    if (step === 0) {
+      // ETAPA 1 — TIPO
+      if (!formData.type) {
+        newErrors.type = 'Selecione o tipo de manifestação que deseja registrar.';
+      }
+    } else if (step === 1) {
+      // ETAPA 2 — FORMA DE REGISTRO
+      if (!formData.registrationType) {
+        newErrors.registrationType = 'Selecione a modalidade de registro (Anônimo, Confidencial ou Identificado).';
+      }
+    } else if (step === 2) {
+      // ETAPA 3 — CLASSIFICAÇÃO
+      if (!formData.categoryId) {
+        newErrors.categoryId = 'Selecione a categoria correspondente à ocorrência.';
+      }
+      if (!formData.unitId) {
+        newErrors.unitId = 'Selecione a unidade do Grupo Bairral.';
+      }
+      if (!formData.relationshipToHospital) {
+        newErrors.relationshipToHospital = 'Selecione sua relação com o Grupo Bairral.';
+      }
+    } else if (step === 3) {
+      // ETAPA 4 — OCORRÊNCIA
+      if (!formData.title || formData.title.trim().length < 5) {
+        newErrors.title = 'Forneça um título claro de no mínimo 5 caracteres.';
+      }
+      if (!formData.description || formData.description.trim().length < 15) {
+        newErrors.description = 'Descreva a ocorrência com detalhes (no mínimo 15 caracteres).';
+      }
+    } else if (step === 4) {
+      // ETAPA 5 — EVIDÊNCIAS (Opcional)
+      // Nenhuma validação bloqueante de preenchimento
+    } else if (step === 5) {
+      // ETAPA 6 — IDENTIFICAÇÃO (Somente se não for Anônimo)
+      if (formData.registrationType !== 'ANONYMOUS') {
+        if (!formData.reporterName || formData.reporterName.trim().length < 3) {
+          newErrors.reporterName = 'Por favor, informe seu nome completo.';
+        }
+        if (!formData.reporterEmail || !formData.reporterEmail.includes('@')) {
+          newErrors.reporterEmail = 'Informe um endereço de e-mail válido para contato.';
+        }
+        if (!formData.reporterPhone || formData.reporterPhone.trim().length < 8) {
+          newErrors.reporterPhone = 'Informe um número de telefone com DDD válido.';
+        }
+      }
+    } else if (step === 6) {
+      // ETAPA 7 — REVISÃO E CONFIRMAÇÃO
+      if (!formData.acceptedTerms) {
+        newErrors.acceptedTerms = 'É obrigatório aceitar os Termos de Uso e Política de Privacidade.';
+      }
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleNext = () => {
+    if (validateStep(currentStep)) {
+      if (currentStep < 6) {
+        setCurrentStep((prev) => prev + 1);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    }
+  };
+
+  const handlePrev = () => {
+    if (currentStep > 0) {
+      setCurrentStep((prev) => prev - 1);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
+  const handleJumpToStep = (targetStep: number) => {
+    if (targetStep < currentStep) {
+      setCurrentStep(targetStep);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
+  // Envio final do formulário via MSW
+  const handleSubmitForm = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!validateStep(6)) return;
+
+    setIsSubmitting(true);
+    try {
+      const payload = {
+        title: formData.title,
+        description: formData.description,
+        type: formData.type,
+        registrationType: formData.registrationType,
+        categoryId: formData.categoryId,
+        unitId: formData.unitId,
+        reporter:
+          formData.registrationType !== 'ANONYMOUS'
+            ? {
+                type: formData.registrationType,
+                name: formData.reporterName,
+                email: formData.reporterEmail,
+                phone: formData.reporterPhone,
+                relationshipToHospital: formData.relationshipToHospital,
+              }
+            : {
+                type: 'ANONYMOUS',
+                relationshipToHospital: formData.relationshipToHospital,
+              },
+        attachments: formData.attachments,
+      };
+
+      const result = await publicService.registerReport(payload);
+      setSubmissionResult(result);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (err: any) {
+      alert(err.message || 'Erro ao registrar manifestação. Tente novamente.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Handlers para Cópia e Impressão na Tela de Sucesso
+  const copyToClipboard = (text: string, type: 'protocol' | 'key' | 'all') => {
+    navigator.clipboard.writeText(text);
+    if (type === 'protocol') {
+      setCopiedProtocol(true);
+      setTimeout(() => setCopiedProtocol(false), 3000);
+    } else if (type === 'key') {
+      setCopiedKey(true);
+      setTimeout(() => setCopiedKey(false), 3000);
+    } else if (type === 'all') {
+      setCopiedAll(true);
+      setTimeout(() => setCopiedAll(false), 3000);
+    }
+  };
+
+  const handlePrint = () => {
+    window.print();
+  };
+
+  const handleCancel = () => {
+    if (hasUnsavedChanges) {
+      if (window.confirm('Tem certeza que deseja abandonar o preenchimento? As informações digitadas serão perdidas.')) {
+        navigate('/');
+      }
+    } else {
+      navigate('/');
+    }
+  };
+
+  // Step definitions
+  const stepsList = [
+    { title: '1. Tipo', description: 'Modalidade' },
+    { title: '2. Forma', description: 'Anonimato' },
+    { title: '3. Origem', description: 'Classificação' },
+    { title: '4. Fato', description: 'Ocorrência' },
+    { title: '5. Anexos', description: 'Evidências' },
+    { title: '6. Contato', description: 'Identificação' },
+    { title: '7. Revisão', description: 'Confirmação' },
+  ];
+
+  // Helper labels for category and unit names in summary
+  const selectedCategoryObj = categories.find((c) => c.id === formData.categoryId);
+  const selectedUnitObj = units.find((u) => u.id === formData.unitId);
+
+  // ==========================================
+  // RENDEREIZAÇÃO DA TELA DE CONFIRMAÇÃO (SUCESSO)
+  // ==========================================
+  if (submissionResult) {
+    return (
+      <Container size="md" className="py-10 space-y-8">
+        <Surface variant="card" className="border-2 border-[#16A34A] p-8 space-y-6 shadow-xl bg-white">
+          <div className="text-center space-y-3">
+            <div className="w-16 h-16 bg-[#F0FDF4] text-[#16A34A] border border-[#BBF7D0] rounded-full flex items-center justify-center mx-auto shadow-sm">
+              <CheckCircle2 className="w-10 h-10 stroke-[2.5px]" />
+            </div>
+            <Typography variant="h2" className="text-[#166534]">
+              Manifestação Registrada com Sucesso!
+            </Typography>
+            <p className="text-xs text-[#525252] max-w-lg mx-auto leading-relaxed">
+              Sua solicitação foi gravada com segurança e já está disponível para análise da Comissão de Ética e Ouvidoria do Grupo Bairral.
+            </p>
+          </div>
+
+          {/* Protocol & Key Highlight Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+            <div className="p-4 bg-[#F5F5F5] border border-[#E5E5E5] rounded-md space-y-2 text-center relative">
+              <span className="text-[11px] font-bold text-[#737373] uppercase tracking-wider block">
+                Número de Protocolo
+              </span>
+              <div className="font-mono text-2xl font-bold text-[#0A0A0A] tracking-wider select-all">
+                {submissionResult.protocol}
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => copyToClipboard(submissionResult.protocol, 'protocol')}
+                leftIcon={copiedProtocol ? <Check className="w-3.5 h-3.5 text-[#16A34A]" /> : <Copy className="w-3.5 h-3.5" />}
+                className="w-full text-xs font-semibold mt-1"
+              >
+                {copiedProtocol ? 'Copiado!' : 'Copiar Protocolo'}
+              </Button>
+            </div>
+
+            <div className="p-4 bg-[#FFF4C2] border border-[#FDC503] rounded-md space-y-2 text-center relative">
+              <span className="text-[11px] font-bold text-[#806300] uppercase tracking-wider block flex items-center justify-center gap-1">
+                <Lock className="w-3.5 h-3.5 text-[#806300]" /> Chave de Acesso Privada
+              </span>
+              <div className="flex items-center justify-center gap-2">
+                <div className="font-mono text-2xl font-bold text-[#0A0A0A] tracking-wider">
+                  {showAccessKey ? submissionResult.accessKey : '••••••••••••'}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowAccessKey(!showAccessKey)}
+                  className="p-1 text-[#806300] hover:text-[#0A0A0A] transition-colors cursor-pointer"
+                  title={showAccessKey ? 'Ocultar Chave' : 'Revelar Chave'}
+                >
+                  {showAccessKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+              <Button
+                type="button"
+                variant="primary"
+                size="sm"
+                onClick={() => copyToClipboard(submissionResult.accessKey, 'key')}
+                leftIcon={copiedKey ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                className="w-full text-xs font-bold mt-1"
+              >
+                {copiedKey ? 'Chave Copiada!' : 'Copiar Chave'}
+              </Button>
+            </div>
+          </div>
+
+          {/* Security Instruction Warning */}
+          <div className="p-4 bg-[#FEF2F2] border border-[#FECACA] rounded-md text-xs text-[#991B1B] space-y-2">
+            <div className="flex items-center gap-2 font-bold uppercase tracking-wide">
+              <ShieldAlert className="w-4 h-4 text-[#DC2626]" /> Instrução Importante de Guarda e Segurança:
+            </div>
+            <p className="leading-relaxed">
+              Anote ou salve seu <strong>Protocolo</strong> e sua <strong>Chave de Acesso</strong> em local seguro. Por motivos de estrito anonimato e proteção de dados (LGPD), o sistema <strong>NÃO</strong> possui mecanismos de recuperação dessas credenciais caso sejam perdidas.
+            </p>
+          </div>
+
+          {/* Combined Actions */}
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-4 border-t border-[#E5E5E5]">
+            <div className="flex gap-2 w-full sm:w-auto">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  copyToClipboard(
+                    `Protocolo: ${submissionResult.protocol}\nChave de Acesso: ${submissionResult.accessKey}`,
+                    'all'
+                  )
+                }
+                leftIcon={copiedAll ? <Check className="w-4 h-4 text-[#16A34A]" /> : <Copy className="w-4 h-4" />}
+                className="flex-1 sm:flex-initial"
+              >
+                {copiedAll ? 'Tudo Copiado!' : 'Copiar Protocolo e Chave'}
+              </Button>
+
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handlePrint}
+                leftIcon={<Printer className="w-4 h-4" />}
+                className="flex-1 sm:flex-initial"
+              >
+                Imprimir / PDF
+              </Button>
+            </div>
+
+            <Link
+              to={`/acompanhar?protocol=${encodeURIComponent(submissionResult.protocol)}&accessKey=${encodeURIComponent(submissionResult.accessKey)}`}
+              className="w-full sm:w-auto"
+            >
+              <Button
+                variant="primary"
+                size="sm"
+                leftIcon={<Search className="w-4 h-4 text-[#FDC503]" />}
+                className="w-full font-bold"
+              >
+                Acompanhar Manifestação
+              </Button>
+            </Link>
+          </div>
+        </Surface>
+      </Container>
+    );
+  }
+
+  // ==========================================
+  // FLUXO DO FORMULÁRIO MULTIETAPAS (ETAPAS 1 A 7)
+  // ==========================================
+  return (
+    <Container size="lg" className="py-8 space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between border-b border-[#E5E5E5] pb-4">
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={handleCancel}
+            className="p-2 text-[#525252] hover:text-[#171717] hover:bg-[#F5F5F5] rounded transition-colors cursor-pointer"
+            title="Voltar"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+          <div>
+            <Typography variant="h2">Registrar Nova Manifestação</Typography>
+            <p className="text-xs text-[#737373]">Canal de Ouvidoria, Ética e Integridade — Grupo Bairral</p>
+          </div>
+        </div>
+
+        <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-[#FFF4C2] border border-[#FDC503] rounded text-[11px] font-bold text-[#806300]">
+          <ShieldCheck className="w-4 h-4 text-[#806300]" />
+          <span>Sigilo &amp; LGPD Garantidos</span>
+        </div>
+      </div>
+
+      {/* Progress Steps Component */}
+      <Steps
+        steps={stepsList}
+        currentStep={currentStep}
+        onStepClick={handleJumpToStep}
+      />
+
+      {/* Main Wizard Form Card */}
+      <Surface variant="card" className="max-w-4xl mx-auto space-y-6 p-6 sm:p-8">
+        <form onSubmit={handleSubmitForm} className="space-y-6">
+          {/* ==========================================
+              ETAPA 1 — TIPO DA MANIFESTAÇÃO
+             ========================================== */}
+          {currentStep === 0 && (
+            <div className="space-y-6">
+              <div>
+                <Typography variant="h3">Etapa 1: Qual o tipo da sua manifestação?</Typography>
+                <p className="text-xs text-[#737373] mt-1">
+                  Selecione a opção que melhor caracteriza a natureza da mensagem que você deseja enviar.
+                </p>
+              </div>
+
+              {errors.type && (
+                <div className="p-3 bg-[#FEF2F2] border border-[#FECACA] rounded text-xs text-[#991B1B] flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 shrink-0 text-[#DC2626]" />
+                  <span>{errors.type}</span>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {[
+                  {
+                    id: 'DENUNCIA',
+                    title: 'Denúncia',
+                    badge: 'Sigilo Prioritário',
+                    desc: 'Relato de descumprimento do Código de Ética, violação de leis, desvios de conduta, assédio ou fraudes.',
+                    color: 'hover:border-[#DC2626]',
+                  },
+                  {
+                    id: 'RECLAMACAO',
+                    title: 'Reclamação',
+                    badge: 'Atendimento & Qualidade',
+                    desc: 'Manfestação de insatisfação quanto a serviços prestados, infraestrutura, refeições ou rotinas de atendimento.',
+                    color: 'hover:border-[#D97706]',
+                  },
+                  {
+                    id: 'SUGESTAO',
+                    title: 'Sugestão',
+                    badge: 'Melhoria Contínua',
+                    desc: 'Propostas de ideias para otimização de fluxos, melhoria de ambientes ou novas práticas hospitalares.',
+                    color: 'hover:border-[#2563EB]',
+                  },
+                  {
+                    id: 'ELOGIO',
+                    title: 'Elogio',
+                    badge: 'Reconhecimento',
+                    desc: 'Manifestação de agrado ou agradecimento pelo atendimento prestado por equipes, médicos ou colaboradores.',
+                    color: 'hover:border-[#16A34A]',
+                  },
+                  {
+                    id: 'DUVIDA',
+                    title: 'Dúvida',
+                    badge: 'Esclarecimento',
+                    desc: 'Questões e pedidos de explicação sobre regimentos internos, normas de conduta ou direitos dos pacientes.',
+                    color: 'hover:border-[#9333EA]',
+                  },
+                  {
+                    id: 'SOLICITACAO',
+                    title: 'Solicitação',
+                    badge: 'Providências',
+                    desc: 'Pedidos formais de suporte, providências operacionais ou emissão de declarações institucionais.',
+                    color: 'hover:border-[#171717]',
+                  },
+                ].map((item) => {
+                  const isSelected = formData.type === item.id;
+                  return (
+                    <div
+                      key={item.id}
+                      onClick={() => updateField('type', item.id)}
+                      className={`p-4 rounded-md border text-left cursor-pointer transition-all space-y-2 relative ${
+                        isSelected
+                          ? 'bg-[#171717] text-white border-[#171717] shadow-md scale-[1.01]'
+                          : `bg-white border-[#E5E5E5] text-[#0A0A0A] ${item.color}`
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-heading font-bold text-sm">{item.title}</span>
+                        {isSelected && <CheckCircle2 className="w-5 h-5 text-[#FDC503]" />}
+                      </div>
+                      <span
+                        className={`inline-block px-2 py-0.5 text-[10px] font-bold rounded ${
+                          isSelected ? 'bg-[#333333] text-[#FDC503]' : 'bg-[#F5F5F5] text-[#525252]'
+                        }`}
+                      >
+                        {item.badge}
+                      </span>
+                      <p className={`text-xs leading-relaxed ${isSelected ? 'text-[#D4D4D4]' : 'text-[#737373]'}`}>
+                        {item.desc}
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* ==========================================
+              ETAPA 2 — FORMA DE REGISTRO
+             ========================================== */}
+          {currentStep === 1 && (
+            <div className="space-y-6">
+              <div>
+                <Typography variant="h3">Etapa 2: Como deseja realizar seu registro?</Typography>
+                <p className="text-xs text-[#737373] mt-1">
+                  Escolha o nível de confidencialidade da sua manifestação. O Grupo Bairral assegura tolerância zero contra retaliações.
+                </p>
+              </div>
+
+              {errors.registrationType && (
+                <div className="p-3 bg-[#FEF2F2] border border-[#FECACA] rounded text-xs text-[#991B1B] flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 shrink-0 text-[#DC2626]" />
+                  <span>{errors.registrationType}</span>
+                </div>
+              )}
+
+              <div className="space-y-4">
+                {[
+                  {
+                    id: 'ANONYMOUS',
+                    title: 'Manifestação 100% Anônima',
+                    icon: <Lock className="w-5 h-5 text-[#D97706]" />,
+                    tag: 'Recomendado para sigilo pleno',
+                    desc: 'Sua identidade permanece totalmente preservada. O sistema descarta endereço IP, geolocalização e dados de rede. O acompanhamento é feito exclusivamente via Protocolo e Chave Privada.',
+                  },
+                  {
+                    id: 'CONFIDENTIAL',
+                    title: 'Manifestação Confidencial',
+                    icon: <ShieldCheck className="w-5 h-5 text-[#2563EB]" />,
+                    tag: 'Acesso restrito apenas à Ouvidoria',
+                    desc: 'Seus dados de contato são informados para viabilizar retornos, porém ficam sob sigilo estrito da Comissão de Ética e NÃO são repassados aos gestores da área denunciada.',
+                  },
+                  {
+                    id: 'IDENTIFIED',
+                    title: 'Manifestação Identificada',
+                    icon: <UserCheck className="w-5 h-5 text-[#16A34A]" />,
+                    tag: 'Retorno direto e transparente',
+                    desc: 'Seus dados de identificação poderão ser compartilhados com os responsáveis pelo departamento para esclarecimentos diretos e resoluções mais ágeis.',
+                  },
+                ].map((item) => {
+                  const isSelected = formData.registrationType === item.id;
+                  return (
+                    <div
+                      key={item.id}
+                      onClick={() => updateField('registrationType', item.id)}
+                      className={`p-5 rounded-md border cursor-pointer transition-all flex items-start gap-4 ${
+                        isSelected
+                          ? 'bg-[#171717] text-white border-[#171717] shadow-md'
+                          : 'bg-white border-[#E5E5E5] hover:border-[#171717]'
+                      }`}
+                    >
+                      <div className={`p-2.5 rounded-full ${isSelected ? 'bg-[#333333]' : 'bg-[#F5F5F5]'}`}>
+                        {item.icon}
+                      </div>
+                      <div className="flex-1 space-y-1">
+                        <div className="flex items-center justify-between">
+                          <h4 className="font-heading font-bold text-sm">{item.title}</h4>
+                          {isSelected && <CheckCircle2 className="w-5 h-5 text-[#FDC503]" />}
+                        </div>
+                        <span
+                          className={`inline-block px-2 py-0.5 text-[10px] font-bold rounded ${
+                            isSelected ? 'bg-[#333333] text-[#FDC503]' : 'bg-[#FFF4C2] text-[#806300]'
+                          }`}
+                        >
+                          {item.tag}
+                        </span>
+                        <p className={`text-xs leading-relaxed pt-1 ${isSelected ? 'text-[#D4D4D4]' : 'text-[#525252]'}`}>
+                          {item.desc}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* ==========================================
+              ETAPA 3 — CLASSIFICAÇÃO
+             ========================================== */}
+          {currentStep === 2 && (
+            <div className="space-y-6">
+              <div>
+                <Typography variant="h3">Etapa 3: Classificação da Ocorrência</Typography>
+                <p className="text-xs text-[#737373] mt-1">
+                  Indique a unidade e a categoria para que a demanda seja encaminhada ao setor correto.
+                </p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField>
+                  <FormLabel required error={!!errors.categoryId}>
+                    Categoria do Relato
+                  </FormLabel>
+                  <Select
+                    value={formData.categoryId}
+                    onChange={(e) => updateField('categoryId', e.target.value)}
+                    options={[
+                      { label: 'Selecione a categoria...', value: '' },
+                      ...categories.map((c) => ({ label: `${c.name} (SLA: ${c.slaDays} dias)`, value: c.id })),
+                    ]}
+                  />
+                  <FormMessage error={errors.categoryId} />
+                </FormField>
+
+                <FormField>
+                  <FormLabel required error={!!errors.unitId}>
+                    Unidade do Grupo Bairral
+                  </FormLabel>
+                  <Select
+                    value={formData.unitId}
+                    onChange={(e) => updateField('unitId', e.target.value)}
+                    options={[
+                      { label: 'Selecione a unidade hospitalar...', value: '' },
+                      ...units.map((u) => ({ label: `${u.name} (${u.code})`, value: u.id })),
+                    ]}
+                  />
+                  <FormMessage error={errors.unitId} />
+                </FormField>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField>
+                  <FormLabel>Departamento / Setor (Opcional)</FormLabel>
+                  <Select
+                    value={formData.department}
+                    onChange={(e) => updateField('department', e.target.value)}
+                    options={[
+                      { label: 'Selecione o setor envolvido (se souber)...', value: '' },
+                      { label: 'Enfermagem / Corpo Clínico', value: 'Enfermagem / Corpo Clínico' },
+                      { label: 'Psiquiatria Intensiva e Internação', value: 'Psiquiatria Intensiva e Internação' },
+                      { label: 'Recepção e Atendimento', value: 'Recepção e Atendimento' },
+                      { label: 'Recursos Humanos / Gestão de Pessoas', value: 'Recursos Humanos / Gestão de Pessoas' },
+                      { label: 'Almoxarifado e Suprimentos', value: 'Almoxarifado e Suprimentos' },
+                      { label: 'Alimentação e Nutrição', value: 'Alimentação e Nutrição' },
+                      { label: 'Manutenção e Infraestrutura', value: 'Manutenção e Infraestrutura' },
+                      { label: 'Financeiro e Faturamento', value: 'Financeiro e Faturamento' },
+                      { label: 'Outro Setor', value: 'Outro Setor' },
+                    ]}
+                  />
+                </FormField>
+
+                <FormField>
+                  <FormLabel>Local Específico da Ocorrência</FormLabel>
+                  <Input
+                    placeholder="Ex: Ala Masculina 2, Quarto 14, Refeitório Central..."
+                    value={formData.location}
+                    onChange={(e) => updateField('location', e.target.value)}
+                  />
+                </FormField>
+              </div>
+
+              <FormField>
+                <FormLabel required error={!!errors.relationshipToHospital}>
+                  Sua Relação com o Grupo Bairral
+                </FormLabel>
+                <RadioGroup
+                  name="relationshipToHospital"
+                  options={[
+                    { label: 'Colaborador / Funcionário', value: 'EMPLOYEE' },
+                    { label: 'Paciente / Ex-paciente', value: 'PATIENT' },
+                    { label: 'Familiar / Acompanhante', value: 'FAMILY_MEMBER' },
+                    { label: 'Fornecedor / Prestador de Serviços', value: 'SUPPLIER' },
+                    { label: 'Comunidade / Visitante', value: 'COMMUNITY' },
+                    { label: 'Outro Vínculo', value: 'OTHER' },
+                  ]}
+                  value={formData.relationshipToHospital}
+                  onChange={(val) => updateField('relationshipToHospital', val)}
+                />
+                <FormMessage error={errors.relationshipToHospital} />
+              </FormField>
+            </div>
+          )}
+
+          {/* ==========================================
+              ETAPA 4 — OCORRÊNCIA (DETALHAMENTO)
+             ========================================== */}
+          {currentStep === 3 && (
+            <div className="space-y-6">
+              <div>
+                <Typography variant="h3">Etapa 4: Detalhamento da Ocorrência</Typography>
+                <p className="text-xs text-[#737373] mt-1">
+                  Descreva o fato com o máximo de clareza possível para facilitar o trabalho da comissão de apuração.
+                </p>
+              </div>
+
+              <FormField>
+                <FormLabel required error={!!errors.title}>
+                  Título do Relato
+                </FormLabel>
+                <Input
+                  placeholder="Resuma o ocorrido em poucas palavras (ex: Falta de equipamentos no plantão da noite)..."
+                  value={formData.title}
+                  onChange={(e) => updateField('title', e.target.value)}
+                />
+                <FormMessage error={errors.title} />
+              </FormField>
+
+              <FormField>
+                <FormLabel required error={!!errors.description}>
+                  Descrição Detalhada do Fato
+                </FormLabel>
+                <Textarea
+                  rows={6}
+                  placeholder="Descreva detalhadamente o que aconteceu, onde, como e quem participou da situação..."
+                  value={formData.description}
+                  onChange={(e) => updateField('description', e.target.value)}
+                />
+                <FormDescription>
+                  Evite termos ofensivos e atenha-se aos fatos observados de boa-fé.
+                </FormDescription>
+                <FormMessage error={errors.description} />
+              </FormField>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <FormField>
+                  <FormLabel>Data Aproximada</FormLabel>
+                  <Input
+                    type="date"
+                    value={formData.approximateDate}
+                    onChange={(e) => updateField('approximateDate', e.target.value)}
+                  />
+                </FormField>
+
+                <FormField>
+                  <FormLabel>Horário Aproximado (Opcional)</FormLabel>
+                  <Input
+                    type="time"
+                    value={formData.approximateTime}
+                    onChange={(e) => updateField('approximateTime', e.target.value)}
+                  />
+                </FormField>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <FormField>
+                  <FormLabel>Pessoas Envolvidas (Nomes / Cargos)</FormLabel>
+                  <Input
+                    placeholder="Cite nomes ou funções das pessoas citadas (se souber)..."
+                    value={formData.involvedPersons}
+                    onChange={(e) => updateField('involvedPersons', e.target.value)}
+                  />
+                </FormField>
+
+                <FormField>
+                  <FormLabel>Testemunhas (Opcional)</FormLabel>
+                  <Input
+                    placeholder="Pessoas que presenciarem a cena..."
+                    value={formData.witnesses}
+                    onChange={(e) => updateField('witnesses', e.target.value)}
+                  />
+                </FormField>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2 border-t border-[#E5E5E5]">
+                <FormField>
+                  <FormLabel>Fato Recorrente?</FormLabel>
+                  <RadioGroup
+                    name="isRecurrent"
+                    options={[
+                      { label: 'Não', value: 'NO' },
+                      { label: 'Sim', value: 'YES' },
+                      { label: 'Não sei', value: 'UNSURE' },
+                    ]}
+                    value={formData.isRecurrent}
+                    onChange={(val) => updateField('isRecurrent', val)}
+                  />
+                </FormField>
+
+                <FormField>
+                  <FormLabel>Risco Imediato à Segurança?</FormLabel>
+                  <RadioGroup
+                    name="hasImmediateRisk"
+                    options={[
+                      { label: 'Não', value: 'NO' },
+                      { label: 'Sim (Urgente)', value: 'YES' },
+                    ]}
+                    value={formData.hasImmediateRisk}
+                    onChange={(val) => updateField('hasImmediateRisk', val)}
+                  />
+                </FormField>
+
+                <FormField>
+                  <FormLabel>Tentativa Anterior de Solução?</FormLabel>
+                  <RadioGroup
+                    name="previousAttempt"
+                    options={[
+                      { label: 'Não', value: 'NO' },
+                      { label: 'Sim', value: 'YES' },
+                    ]}
+                    value={formData.previousAttempt}
+                    onChange={(val) => updateField('previousAttempt', val)}
+                  />
+                </FormField>
+              </div>
+
+              {formData.previousAttempt === 'YES' && (
+                <FormField>
+                  <FormLabel>Detalhes da Tentativa Anterior</FormLabel>
+                  <Input
+                    placeholder="Com quem conversou ou qual providência foi solicitada anteriormente..."
+                    value={formData.previousAttemptDetails}
+                    onChange={(e) => updateField('previousAttemptDetails', e.target.value)}
+                  />
+                </FormField>
+              )}
+            </div>
+          )}
+
+          {/* ==========================================
+              ETAPA 5 — EVIDÊNCIAS E ANEXOS
+             ========================================== */}
+          {currentStep === 4 && (
+            <div className="space-y-6">
+              <div>
+                <Typography variant="h3">Etapa 5: Evidências e Documentos Anexos</Typography>
+                <p className="text-xs text-[#737373] mt-1">
+                  Anexe fotos, documentos PDF ou relatórios que comprovem ou fundamentem o seu relato (opcional).
+                </p>
+              </div>
+
+              <FileUpload
+                label="Selecione ou Arraste Arquivos"
+                maxSizeMB={10}
+                maxFiles={5}
+                files={formData.attachments}
+                onChange={(files) => updateField('attachments', files)}
+                showMetadataWarning={true}
+              />
+            </div>
+          )}
+
+          {/* ==========================================
+              ETAPA 6 — IDENTIFICAÇÃO (APLICÁVEL SE NÃO ANÔNIMO)
+             ========================================== */}
+          {currentStep === 5 && (
+            <div className="space-y-6">
+              <div>
+                <Typography variant="h3">Etapa 6: Dados de Identificação</Typography>
+                <p className="text-xs text-[#737373] mt-1">
+                  {formData.registrationType === 'ANONYMOUS'
+                    ? 'Você selecionou a modalidade de envio 100% Anônima.'
+                    : 'Preencha seus dados de contato para que a ouvidoria possa retornar o resultado da apuração.'}
+                </p>
+              </div>
+
+              {formData.registrationType === 'ANONYMOUS' ? (
+                <div className="p-6 bg-[#F5F5F5] border border-[#E5E5E5] rounded-md text-center space-y-3">
+                  <div className="w-12 h-12 bg-[#171717] text-[#FDC503] rounded-full flex items-center justify-center mx-auto shadow-sm">
+                    <Lock className="w-6 h-6" />
+                  </div>
+                  <Typography variant="h4">Modo Anônimo Ativo</Typography>
+                  <p className="text-xs text-[#525252] max-w-md mx-auto leading-relaxed">
+                    Em estrito respeito ao seu anonimato, <strong>nenhum dado pessoal será solicitado ou armazenado</strong> nesta etapa. Seu acesso será fornecido por chave privada na confirmação.
+                  </p>
+                  <div className="pt-2">
+                    <Button type="button" variant="primary" size="sm" onClick={handleNext}>
+                      Avançar para Revisão Final
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <FormField>
+                    <FormLabel required error={!!errors.reporterName}>
+                      Nome Completo
+                    </FormLabel>
+                    <Input
+                      placeholder="Digite seu nome completo..."
+                      value={formData.reporterName}
+                      onChange={(e) => updateField('reporterName', e.target.value)}
+                    />
+                    <FormMessage error={errors.reporterName} />
+                  </FormField>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <FormField>
+                      <FormLabel required error={!!errors.reporterEmail}>
+                        E-mail de Contato
+                      </FormLabel>
+                      <Input
+                        type="email"
+                        placeholder="seu.email@dominio.com..."
+                        value={formData.reporterEmail}
+                        onChange={(e) => updateField('reporterEmail', e.target.value)}
+                      />
+                      <FormMessage error={errors.reporterEmail} />
+                    </FormField>
+
+                    <FormField>
+                      <FormLabel required error={!!errors.reporterPhone}>
+                        Telefone / WhatsApp
+                      </FormLabel>
+                      <Input
+                        placeholder="(19) 99999-9999..."
+                        value={formData.reporterPhone}
+                        onChange={(e) => updateField('reporterPhone', e.target.value)}
+                      />
+                      <FormMessage error={errors.reporterPhone} />
+                    </FormField>
+                  </div>
+
+                  <FormField>
+                    <FormLabel>Canal de Comunicação Preferencial</FormLabel>
+                    <RadioGroup
+                      name="contactPreference"
+                      options={[
+                        { label: 'E-mail', value: 'EMAIL' },
+                        { label: 'WhatsApp / Telefone', value: 'WHATSAPP' },
+                        { label: 'Ligação Telefônica', value: 'PHONE' },
+                      ]}
+                      value={formData.contactPreference}
+                      onChange={(val) => updateField('contactPreference', val)}
+                    />
+                  </FormField>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ==========================================
+              ETAPA 7 — REVISÃO E CONFIRMAÇÃO
+             ========================================== */}
+          {currentStep === 6 && (
+            <div className="space-y-6">
+              <div>
+                <Typography variant="h3">Etapa 7: Revisão Final e Consentimento</Typography>
+                <p className="text-xs text-[#737373] mt-1">
+                  Confira o resumo das informações antes de realizar o envio definitivo para a Ouvidoria.
+                </p>
+              </div>
+
+              {/* Summary Cards with Quick Edit Buttons */}
+              <div className="space-y-4">
+                {/* Block 1: Tipo e Registro */}
+                <div className="p-4 bg-[#F5F5F5] border border-[#E5E5E5] rounded-md space-y-2">
+                  <div className="flex items-center justify-between border-b border-[#E5E5E5] pb-2">
+                    <span className="font-heading font-bold text-xs text-[#0A0A0A] uppercase tracking-wide flex items-center gap-1.5">
+                      <FileText className="w-4 h-4 text-[#FDC503]" /> 1. Tipo e Modalidade
+                    </span>
+                    <Button type="button" variant="ghost" size="sm" onClick={() => handleJumpToStep(0)} className="h-7 text-xs">
+                      <Edit3 className="w-3.5 h-3.5 mr-1" /> Editar
+                    </Button>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                    <div>
+                      <span className="text-[#737373]">Tipo:</span>{' '}
+                      <strong className="text-[#0A0A0A]">{formData.type}</strong>
+                    </div>
+                    <div>
+                      <span className="text-[#737373]">Modalidade:</span>{' '}
+                      <strong className="text-[#0A0A0A]">
+                        {formData.registrationType === 'ANONYMOUS'
+                          ? '100% Anônimo'
+                          : formData.registrationType === 'CONFIDENTIAL'
+                          ? 'Confidencial'
+                          : 'Identificado'}
+                      </strong>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Block 2: Classificação */}
+                <div className="p-4 bg-[#F5F5F5] border border-[#E5E5E5] rounded-md space-y-2">
+                  <div className="flex items-center justify-between border-b border-[#E5E5E5] pb-2">
+                    <span className="font-heading font-bold text-xs text-[#0A0A0A] uppercase tracking-wide flex items-center gap-1.5">
+                      <Building className="w-4 h-4 text-[#FDC503]" /> 2. Origem e Classificação
+                    </span>
+                    <Button type="button" variant="ghost" size="sm" onClick={() => handleJumpToStep(2)} className="h-7 text-xs">
+                      <Edit3 className="w-3.5 h-3.5 mr-1" /> Editar
+                    </Button>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                    <div>
+                      <span className="text-[#737373]">Categoria:</span>{' '}
+                      <strong className="text-[#0A0A0A]">{selectedCategoryObj?.name || 'Não informada'}</strong>
+                    </div>
+                    <div>
+                      <span className="text-[#737373]">Unidade:</span>{' '}
+                      <strong className="text-[#0A0A0A]">{selectedUnitObj?.name || 'Não informada'}</strong>
+                    </div>
+                    {formData.department && (
+                      <div>
+                        <span className="text-[#737373]">Setor:</span>{' '}
+                        <strong className="text-[#0A0A0A]">{formData.department}</strong>
+                      </div>
+                    )}
+                    {formData.location && (
+                      <div>
+                        <span className="text-[#737373]">Local:</span>{' '}
+                        <strong className="text-[#0A0A0A]">{formData.location}</strong>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Block 3: Fato e Evidências */}
+                <div className="p-4 bg-[#F5F5F5] border border-[#E5E5E5] rounded-md space-y-2">
+                  <div className="flex items-center justify-between border-b border-[#E5E5E5] pb-2">
+                    <span className="font-heading font-bold text-xs text-[#0A0A0A] uppercase tracking-wide flex items-center gap-1.5">
+                      <MessageSquare className="w-4 h-4 text-[#FDC503]" /> 3. Detalhamento e Anexos
+                    </span>
+                    <Button type="button" variant="ghost" size="sm" onClick={() => handleJumpToStep(3)} className="h-7 text-xs">
+                      <Edit3 className="w-3.5 h-3.5 mr-1" /> Editar
+                    </Button>
+                  </div>
+                  <div className="space-y-1.5 text-xs">
+                    <div>
+                      <span className="text-[#737373]">Título:</span>{' '}
+                      <strong className="text-[#0A0A0A]">{formData.title}</strong>
+                    </div>
+                    <div>
+                      <span className="text-[#737373]">Descrição:</span>
+                      <p className="p-2 bg-white border border-[#E5E5E5] rounded mt-1 text-[#262626] leading-relaxed max-h-32 overflow-y-auto">
+                        {formData.description}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-[#737373]">Anexos:</span>{' '}
+                      <strong className="text-[#0A0A0A]">
+                        {formData.attachments.length > 0 ? `${formData.attachments.length} arquivo(s)` : 'Nenhum anexo'}
+                      </strong>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Block 4: Identificação */}
+                <div className="p-4 bg-[#F5F5F5] border border-[#E5E5E5] rounded-md space-y-2">
+                  <div className="flex items-center justify-between border-b border-[#E5E5E5] pb-2">
+                    <span className="font-heading font-bold text-xs text-[#0A0A0A] uppercase tracking-wide flex items-center gap-1.5">
+                      <User className="w-4 h-4 text-[#FDC503]" /> 4. Identificação do Manifestante
+                    </span>
+                    <Button type="button" variant="ghost" size="sm" onClick={() => handleJumpToStep(5)} className="h-7 text-xs">
+                      <Edit3 className="w-3.5 h-3.5 mr-1" /> Editar
+                    </Button>
+                  </div>
+                  <div className="text-xs">
+                    {formData.registrationType === 'ANONYMOUS' ? (
+                      <span className="text-[#806300] font-semibold bg-[#FFF4C2] px-2 py-0.5 rounded">
+                        Manifestação Anônima — Identidade Preservada
+                      </span>
+                    ) : (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <div>
+                          <span className="text-[#737373]">Nome:</span> <strong>{formData.reporterName}</strong>
+                        </div>
+                        <div>
+                          <span className="text-[#737373]">E-mail:</span> <strong>{formData.reporterEmail}</strong>
+                        </div>
+                        <div>
+                          <span className="text-[#737373]">Telefone:</span> <strong>{formData.reporterPhone}</strong>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Terms and Consent Checkbox */}
+              <div className="p-4 bg-[#EFF6FF] border border-[#BFDBFE] rounded-md space-y-3">
+                <Checkbox
+                  id="acceptedTerms"
+                  checked={formData.acceptedTerms}
+                  onChange={(e) => updateField('acceptedTerms', e.target.checked)}
+                  error={!!errors.acceptedTerms}
+                  label="Declaro sob as penas da lei e do Código de Ética que as informações prestadas são verdadeiras e fundamentadas, e declaro ter lido e aceito os Termos de Uso e Política de Privacidade do Grupo Bairral."
+                />
+                <FormMessage error={errors.acceptedTerms} />
+              </div>
+            </div>
+          )}
+
+          {/* Wizard Footer Controls */}
+          <div className="pt-6 border-t border-[#E5E5E5] flex items-center justify-between gap-3">
+            {currentStep > 0 ? (
+              <Button type="button" variant="outline" size="sm" onClick={handlePrev} disabled={isSubmitting}>
+                <ArrowLeft className="w-4 h-4 mr-1.5" /> Anterior
+              </Button>
+            ) : (
+              <Button type="button" variant="ghost" size="sm" onClick={handleCancel}>
+                Cancelar
+              </Button>
+            )}
+
+            {currentStep < 6 ? (
+              <Button type="button" variant="primary" size="sm" onClick={handleNext}>
+                Próxima Etapa <ArrowRight className="w-4 h-4 ml-1.5" />
+              </Button>
+            ) : (
+              <Button
+                type="submit"
+                variant="primary"
+                size="sm"
+                disabled={isSubmitting}
+                leftIcon={isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                className="font-bold bg-[#16A34A] hover:bg-[#15803D] text-white border-none"
+              >
+                {isSubmitting ? 'Enviando Manifestação...' : 'Confirmar e Enviar Manifestação'}
+              </Button>
+            )}
+          </div>
+        </form>
+      </Surface>
+    </Container>
+  );
+}
