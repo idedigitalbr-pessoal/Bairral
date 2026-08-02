@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { Send, MessageSquare, Info, Shield, HelpCircle, CheckCircle2 } from 'lucide-react';
+import { Send, MessageSquare, Info, Shield, HelpCircle, CheckCircle2, Sparkles, RefreshCw } from 'lucide-react';
 import { Report, PublicMessage } from '../../../types';
 import { Button } from '../../../components/ui/Button';
 import { formatDateTime } from '../../../lib/dateUtils';
 import { useAddPublicMessage, useUpdateReport } from '../../../hooks/useReports';
 import { ReportStatusEnum } from '../../../types/enums';
+import { geminiService } from '../../../services/geminiService';
 
 interface PublicMessagesTabProps {
   report: Report;
@@ -16,8 +17,28 @@ export function PublicMessagesTab({ report, onShowToast }: PublicMessagesTabProp
   const updateReportMutation = useUpdateReport();
 
   const [messageContent, setMessageContent] = useState('');
+  const [draftingAi, setDraftingAi] = useState(false);
 
   const publicMessages: PublicMessage[] = report.publicMessages || [];
+
+  const handleGenerateDraftAi = async () => {
+    setDraftingAi(true);
+    try {
+      const result = await geminiService.draftReply({
+        title: report.title,
+        description: report.description,
+        currentStatus: report.status,
+      });
+      if (result?.suggestedReply) {
+        setMessageContent(result.suggestedReply);
+        onShowToast('Rascunho IA Gerado', 'O texto sugerido pelo Gemini foi aplicado na caixa de mensagem.', 'info');
+      }
+    } catch (err) {
+      onShowToast('Erro na IA', 'Não foi possível gerar a resposta neste momento.', 'danger');
+    } finally {
+      setDraftingAi(false);
+    }
+  };
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -132,9 +153,32 @@ export function PublicMessagesTab({ report, onShowToast }: PublicMessagesTabProp
 
       {/* Message Input Box */}
       <div className="bg-white border border-[#E5E5E5] rounded-lg p-5 shadow-xs space-y-3">
-        <h4 className="text-xs font-bold text-[#0A0A0A]">
-          Escrever Mensagem para o Manifestante
-        </h4>
+        <div className="flex items-center justify-between">
+          <h4 className="text-xs font-bold text-[#0A0A0A]">
+            Escrever Mensagem para o Manifestante
+          </h4>
+
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={handleGenerateDraftAi}
+            disabled={draftingAi}
+            className="text-[11px] gap-1.5 border-[#FACC15] bg-[#FEF9C3]/50 hover:bg-[#FEF9C3] text-[#0A0A0A] font-semibold"
+          >
+            {draftingAi ? (
+              <>
+                <RefreshCw className="w-3 h-3 animate-spin text-[#D97706]" />
+                Sugerindo...
+              </>
+            ) : (
+              <>
+                <Sparkles className="w-3 h-3 text-[#D97706]" />
+                Rascunhar Resposta com IA
+              </>
+            )}
+          </Button>
+        </div>
 
         <textarea
           rows={4}

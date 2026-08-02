@@ -21,6 +21,7 @@ import { PriorityBadge } from '../../../components/data-display/PriorityBadge';
 import { Button } from '../../../components/ui/Button';
 import { formatDateTime, calculateOpenTime, calculateSlaStatus } from '../../../lib/dateUtils';
 import { ActionType } from '../ReportHeader';
+import { AIReportAnalysisCard } from '../AIReportAnalysisCard';
 
 interface OverviewTabProps {
   report: Report;
@@ -93,6 +94,9 @@ export function OverviewTab({ report, onOpenAction }: OverviewTabProps) {
           </p>
         </div>
       </div>
+
+      {/* AI Assistant Card */}
+      <AIReportAnalysisCard report={report} />
 
       {/* Main Grid: Details + Quick Action Bar */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

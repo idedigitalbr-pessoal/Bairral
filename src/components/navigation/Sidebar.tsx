@@ -156,8 +156,10 @@ export function Sidebar({
         {/* Navigation Items */}
         <div
           className={cn(
-            'flex-1 overflow-y-auto overflow-x-hidden py-4 custom-scrollbar',
-            collapsed ? 'px-1.5 space-y-4' : 'px-3 space-y-6'
+            'flex-1 overflow-x-hidden transition-all duration-300',
+            collapsed
+              ? 'overflow-y-auto px-1 py-2 space-y-2 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden'
+              : 'overflow-y-auto px-3 py-4 space-y-6 custom-scrollbar'
           )}
         >
           {NAV_GROUPS.map((group, idx) => {
@@ -168,7 +170,11 @@ export function Sidebar({
             if (visibleItems.length === 0) return null;
 
             return (
-              <div key={idx} className={cn('space-y-1', collapsed && 'flex flex-col items-center')}>
+              <div key={idx} className={cn('space-y-1', collapsed && 'flex flex-col items-center space-y-1')}>
+                {idx > 0 && collapsed && (
+                  <div className="w-5 h-[1px] bg-[#262626] my-1" />
+                )}
+
                 {group.groupName && !collapsed && (
                   <h5 className="px-3 text-[10px] font-bold uppercase tracking-wider text-[#737373] mb-1.5 whitespace-nowrap overflow-hidden text-ellipsis">
                     {group.groupName}
@@ -187,7 +193,7 @@ export function Sidebar({
                       className={cn(
                         'flex items-center text-xs font-semibold rounded-md transition-colors group cursor-pointer whitespace-nowrap overflow-hidden',
                         collapsed
-                          ? 'justify-center w-10 h-10 mx-auto'
+                          ? 'justify-center w-9 h-9 mx-auto'
                           : 'gap-3 px-3 py-2 w-full',
                         isActive
                           ? 'bg-[#FDC503] text-[#0A0A0A] shadow-xs font-bold'
@@ -230,7 +236,7 @@ export function Sidebar({
         <div
           className={cn(
             'border-t border-[#262626] bg-[#0A0A0A] shrink-0 transition-all duration-300',
-            collapsed ? 'p-2 overflow-x-hidden space-y-2' : 'p-3 space-y-2'
+            collapsed ? 'p-1.5 overflow-x-hidden space-y-1.5' : 'p-3 space-y-2'
           )}
         >
           {!collapsed && user && (

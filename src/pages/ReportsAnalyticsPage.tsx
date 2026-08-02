@@ -4,6 +4,7 @@ import { Typography } from '../components/ui/Typography';
 import { MetricCard } from '../components/data-display/MetricCard';
 import { Grid } from '../components/ui/Grid';
 import { ExportButton } from '../components/ui/ExportButton';
+import { ExecutiveAIInsightsWidget } from '../components/data-display/ExecutiveAIInsightsWidget';
 
 export function ReportsAnalyticsPage() {
   const analyticsHeaders = ['Métrica de Governança', 'Valor / Indicador', 'Meta / SLA', 'Situação'];
@@ -31,6 +32,8 @@ export function ReportsAnalyticsPage() {
         />
       </div>
 
+      {/* Gemini AI Governance Insights Widget */}
+      <ExecutiveAIInsightsWidget />
 
       <Grid cols={3} gap="4">
         <MetricCard
