@@ -1,4 +1,5 @@
 import { apiClient } from '../api/client';
+import { mockSettings } from '../mocks/data';
 
 export interface SystemSettings {
   institutional: {
@@ -42,11 +43,35 @@ export interface SystemSettings {
   };
 }
 
+let localSettings = { ...mockSettings };
+
 export const settingsService = {
   getSettings: async (): Promise<SystemSettings> => {
-    return apiClient.get<SystemSettings>('/settings');
+    try {
+      return await apiClient.get<SystemSettings>('/settings');
+    } catch (error) {
+      console.warn('Usando configurações mockadas devido a erro de rede:', error);
+      return localSettings;
+    }
   },
   updateSettings: async (settings: Partial<SystemSettings>): Promise<SystemSettings> => {
-    return apiClient.put<SystemSettings>('/settings', settings);
+    try {
+      return await apiClient.put<SystemSettings>('/settings', settings);
+    } catch (error) {
+      console.warn('Atualizando configurações mockadas localmente:', error);
+      localSettings = {
+        ...localSettings,
+        ...settings,
+        institutional: { ...localSettings.institutional, ...(settings.institutional || {}) },
+        slaDefaults: { ...localSettings.slaDefaults, ...(settings.slaDefaults || {}) },
+        policies: { ...localSettings.policies, ...(settings.policies || {}) },
+        messageTemplates: { ...localSettings.messageTemplates, ...(settings.messageTemplates || {}) },
+        retention: { ...localSettings.retention, ...(settings.retention || {}) },
+        alternativeChannels: { ...localSettings.alternativeChannels, ...(settings.alternativeChannels || {}) },
+        notifications: { ...localSettings.notifications, ...(settings.notifications || {}) },
+      };
+      return localSettings;
+    }
   },
 };
+

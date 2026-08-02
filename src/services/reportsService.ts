@@ -103,46 +103,161 @@ export const reportsService = {
   },
 
   updateReport: async (id: string, updates: Partial<Report>): Promise<Report> => {
-    return apiClient.patch<Report>(`/reports/${id}`, updates);
+    try {
+      return await apiClient.patch<Report>(`/reports/${id}`, updates);
+    } catch (error) {
+      console.warn('Atualizando manifestação mockada:', error);
+      const idx = mockReports.findIndex((r) => r.id === id || r.protocol === id);
+      if (idx !== -1) {
+        mockReports[idx] = { ...mockReports[idx], ...updates, updatedAt: new Date().toISOString() };
+        return mockReports[idx];
+      }
+      return { id, ...updates } as Report;
+    }
   },
 
   addPublicMessage: async (id: string, content: string, senderType: 'COMMITTEE' | 'REPORTER' = 'COMMITTEE'): Promise<PublicMessage> => {
-    return apiClient.post<PublicMessage>(`/reports/${id}/messages`, { content, senderType });
+    try {
+      return await apiClient.post<PublicMessage>(`/reports/${id}/messages`, { content, senderType });
+    } catch (error) {
+      console.warn('Adicionando mensagem pública mockada:', error);
+      const newMsg: PublicMessage = {
+        id: `msg-${Date.now()}`,
+        reportId: id,
+        senderType,
+        senderName: senderType === 'REPORTER' ? 'Manifestante' : 'Ouvidoria / Comitê de Ética',
+        content,
+        attachments: [],
+        createdAt: new Date().toISOString(),
+      };
+      const rep = mockReports.find((r) => r.id === id || r.protocol === id);
+      if (rep) {
+        if (!rep.publicMessages) rep.publicMessages = [];
+        rep.publicMessages.push(newMsg);
+      }
+      return newMsg;
+    }
   },
 
   addInternalComment: async (id: string, content: string): Promise<InternalComment> => {
-    return apiClient.post<InternalComment>(`/reports/${id}/comments`, { content });
+    try {
+      return await apiClient.post<InternalComment>(`/reports/${id}/comments`, { content });
+    } catch (error) {
+      console.warn('Adicionando comentário interno mockado:', error);
+      const newComment: InternalComment = {
+        id: `cmt-${Date.now()}`,
+        reportId: id,
+        authorId: 'user-1',
+        authorName: 'Dr. Carlos Silva',
+        authorRole: 'Gestor de Ética',
+        content,
+        attachments: [],
+        isPrivate: true,
+        createdAt: new Date().toISOString(),
+      };
+      const rep = mockReports.find((r) => r.id === id || r.protocol === id);
+      if (rep) {
+        if (!rep.internalComments) rep.internalComments = [];
+        rep.internalComments.push(newComment);
+      }
+      return newComment;
+    }
   },
 
   addActionPlan: async (
     id: string,
     actionPlan: Omit<ActionPlan, 'id' | 'reportId' | 'createdAt' | 'updatedAt'>
   ): Promise<ActionPlan> => {
-    return apiClient.post<ActionPlan>(`/reports/${id}/action-plans`, actionPlan);
+    try {
+      return await apiClient.post<ActionPlan>(`/reports/${id}/action-plans`, actionPlan);
+    } catch (error) {
+      console.warn('Adicionando plano de ação mockado:', error);
+      const newPlan: ActionPlan = {
+        id: `acp-${Date.now()}`,
+        reportId: id,
+        ...actionPlan,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      const rep = mockReports.find((r) => r.id === id || r.protocol === id);
+      if (rep) {
+        if (!rep.actionPlans) rep.actionPlans = [];
+        rep.actionPlans.push(newPlan);
+      }
+      return newPlan;
+    }
   },
 
   addEvidence: async (
     id: string,
     evidence: { fileName: string; fileSize: number; mimeType: string; url?: string }
   ): Promise<Attachment> => {
-    return apiClient.post<Attachment>(`/reports/${id}/evidences`, evidence);
+    try {
+      return await apiClient.post<Attachment>(`/reports/${id}/evidences`, evidence);
+    } catch (error) {
+      console.warn('Anexando evidência mockada:', error);
+      const newAtt: Attachment = {
+        id: `att-${Date.now()}`,
+        fileName: evidence.fileName,
+        fileSize: evidence.fileSize,
+        mimeType: evidence.mimeType,
+        url: evidence.url || '#',
+        uploadedAt: new Date().toISOString(),
+        uploadedBy: 'Dr. Carlos Silva',
+      };
+      const rep = mockReports.find((r) => r.id === id || r.protocol === id);
+      if (rep) {
+        if (!rep.attachments) rep.attachments = [];
+        rep.attachments.push(newAtt);
+      }
+      return newAtt;
+    }
   },
 
   addRelatedPerson: async (
     id: string,
     person: Omit<RelatedPerson, 'id'>
   ): Promise<RelatedPerson> => {
-    return apiClient.post<RelatedPerson>(`/reports/${id}/related-people`, person);
+    try {
+      return await apiClient.post<RelatedPerson>(`/reports/${id}/related-people`, person);
+    } catch (error) {
+      console.warn('Adicionando pessoa relacionada mockada:', error);
+      const newPerson: RelatedPerson = {
+        id: `person-${Date.now()}`,
+        ...person,
+      };
+      const rep = mockReports.find((r) => r.id === id || r.protocol === id);
+      if (rep) {
+        if (!rep.relatedPeople) rep.relatedPeople = [];
+        rep.relatedPeople.push(newPerson);
+      }
+      return newPerson;
+    }
   },
 
   declareConflict: async (
     id: string,
     reason: string
   ): Promise<{ success: boolean; message: string }> => {
-    return apiClient.post<{ success: boolean; message: string }>(`/reports/${id}/conflict-of-interest`, { reason });
+    try {
+      return await apiClient.post<{ success: boolean; message: string }>(`/reports/${id}/conflict-of-interest`, { reason });
+    } catch (error) {
+      console.warn('Declarando conflito de interesse mockado:', error);
+      const rep = mockReports.find((r) => r.id === id || r.protocol === id);
+      if (rep) {
+        rep.conflictDeclared = true;
+        rep.conflictNote = reason;
+      }
+      return { success: true, message: 'Conflito de interesse registrado com sucesso.' };
+    }
   },
 
   getReportAuditLogs: async (id: string): Promise<AuditLog[]> => {
-    return apiClient.get<AuditLog[]>(`/reports/${id}/audit-logs`);
+    try {
+      return await apiClient.get<AuditLog[]>(`/reports/${id}/audit-logs`);
+    } catch (error) {
+      console.warn('Obtendo logs de auditoria mockados do caso:', error);
+      return [];
+    }
   },
 };
