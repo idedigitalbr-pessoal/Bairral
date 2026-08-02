@@ -54,6 +54,8 @@ import { Category, Unit, ReportTypeEnum, RegistrationTypeEnum } from '../types';
 export interface PublicReportFormData {
   type: string; // DENUNCIA, RECLAMACAO, SUGESTAO, ELOGIO, DUVIDA, SOLICITACAO
   registrationType: string; // ANONYMOUS, CONFIDENTIAL, IDENTIFIED
+  isBairralEmployee: string; // YES, NO
+  reporterRole: string; // Cargo (se funcionário)
   categoryId: string;
   unitId: string;
   department: string;
@@ -80,6 +82,8 @@ export interface PublicReportFormData {
 const initialFormData: PublicReportFormData = {
   type: '',
   registrationType: 'ANONYMOUS',
+  isBairralEmployee: '',
+  reporterRole: '',
   categoryId: '',
   unitId: '',
   department: '',
@@ -189,17 +193,32 @@ export function RegisterReportPage() {
       // ETAPA 2 — FORMA DE REGISTRO
       if (!formData.registrationType) {
         newErrors.registrationType = 'Selecione a modalidade de registro (Anônimo, Confidencial ou Identificado).';
+      } else if (formData.registrationType !== 'ANONYMOUS') {
+        if (!formData.isBairralEmployee) {
+          newErrors.isBairralEmployee = 'Por favor, informe se você é funcionário(a) do Grupo Bairral.';
+        }
+        if (!formData.reporterName || formData.reporterName.trim().length < 3) {
+          newErrors.reporterName = 'Por favor, informe seu nome completo.';
+        }
+        if (!formData.reporterEmail || !formData.reporterEmail.includes('@')) {
+          newErrors.reporterEmail = 'Informe um e-mail válido para contato.';
+        }
+        if (!formData.reporterPhone || formData.reporterPhone.trim().length < 8) {
+          newErrors.reporterPhone = 'Informe um telefone com DDD válido.';
+        }
+        if (formData.isBairralEmployee === 'YES') {
+          if (!formData.reporterRole) {
+            newErrors.reporterRole = 'Selecione o seu cargo no Grupo Bairral.';
+          }
+          if (!formData.relationshipToHospital) {
+            newErrors.relationshipToHospital = 'Selecione a sua relação com o Grupo Bairral.';
+          }
+        }
       }
     } else if (step === 2) {
-      // ETAPA 3 — CLASSIFICAÇÃO
-      if (!formData.categoryId) {
-        newErrors.categoryId = 'Selecione a categoria correspondente à ocorrência.';
-      }
+      // ETAPA 3 — UNIDADE DA OCORRÊNCIA
       if (!formData.unitId) {
         newErrors.unitId = 'Selecione a unidade do Grupo Bairral.';
-      }
-      if (!formData.relationshipToHospital) {
-        newErrors.relationshipToHospital = 'Selecione sua relação com o Grupo Bairral.';
       }
     } else if (step === 3) {
       // ETAPA 4 — OCORRÊNCIA
@@ -328,20 +347,83 @@ export function RegisterReportPage() {
     }
   };
 
-  // Step definitions
-  const stepsList = [
-    { title: '1. Tipo', description: 'Modalidade' },
-    { title: '2. Forma', description: 'Anonimato' },
-    { title: '3. Origem', description: 'Classificação' },
-    { title: '4. Fato', description: 'Ocorrência' },
-    { title: '5. Anexos', description: 'Evidências' },
-    { title: '6. Contato', description: 'Identificação' },
-    { title: '7. Revisão', description: 'Confirmação' },
-  ];
-
   // Helper labels for category and unit names in summary
   const selectedCategoryObj = categories.find((c) => c.id === formData.categoryId);
   const selectedUnitObj = units.find((u) => u.id === formData.unitId);
+
+  // Dynamic step descriptions displayed below each step title
+  const getTypeLabel = () => {
+    switch (formData.type) {
+      case 'DENUNCIA': return 'Denúncia';
+      case 'RECLAMACAO': return 'Reclamação';
+      case 'SUGESTAO': return 'Sugestão';
+      case 'ELOGIO': return 'Elogio';
+      case 'DUVIDA': return 'Dúvida';
+      case 'SOLICITACAO': return 'Solicitação';
+      default: return 'Modalidade';
+    }
+  };
+
+  const getFormaLabel = () => {
+    switch (formData.registrationType) {
+      case 'ANONYMOUS': return '100% Anônimo';
+      case 'CONFIDENTIAL': return 'Confidencial';
+      case 'IDENTIFIED': return 'Identificado';
+      default: return 'Anonimato';
+    }
+  };
+
+  const getOrigemLabel = () => {
+    if (selectedUnitObj) {
+      const label = selectedUnitObj.code || selectedUnitObj.name;
+      return label.length > 13 ? label.substring(0, 13) + '...' : label;
+    }
+    return 'Unidade';
+  };
+
+  const getFatoLabel = () => {
+    if (formData.title.trim()) {
+      return formData.title.length > 13
+        ? formData.title.substring(0, 13) + '...'
+        : formData.title;
+    }
+    return 'Ocorrência';
+  };
+
+  const getAnexosLabel = () => {
+    if (formData.attachments.length > 0) {
+      return `${formData.attachments.length} anexo(s)`;
+    }
+    return 'Evidências';
+  };
+
+  const getContatoLabel = () => {
+    if (formData.registrationType === 'ANONYMOUS') {
+      return 'Anônimo';
+    }
+    if (formData.reporterName.trim()) {
+      const firstName = formData.reporterName.trim().split(' ')[0];
+      return firstName.length > 12 ? firstName.substring(0, 12) + '...' : firstName;
+    }
+    return 'Identificação';
+  };
+
+  const getRevisaoLabel = () => {
+    if (formData.acceptedTerms) {
+      return 'Termos Aceitos';
+    }
+    return 'Confirmação';
+  };
+
+  const stepsList = [
+    { title: '1. Tipo', description: getTypeLabel() },
+    { title: '2. Forma', description: getFormaLabel() },
+    { title: '3. Origem', description: getOrigemLabel() },
+    { title: '4. Fato', description: getFatoLabel() },
+    { title: '5. Anexos', description: getAnexosLabel() },
+    { title: '6. Contato', description: getContatoLabel() },
+    { title: '7. Revisão', description: getRevisaoLabel() },
+  ];
 
   // ==========================================
   // RENDEREIZAÇÃO DA TELA DE CONFIRMAÇÃO (SUCESSO)
@@ -626,7 +708,7 @@ export function RegisterReportPage() {
                 </div>
               )}
 
-              <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {[
                   {
                     id: 'ANONYMOUS',
@@ -655,28 +737,30 @@ export function RegisterReportPage() {
                     <div
                       key={item.id}
                       onClick={() => updateField('registrationType', item.id)}
-                      className={`p-5 rounded-md border cursor-pointer transition-all flex items-start gap-4 ${
+                      className={`p-5 rounded-md border cursor-pointer transition-all flex flex-col justify-between gap-3 ${
                         isSelected
                           ? 'bg-[#171717] text-white border-[#171717] shadow-md'
                           : 'bg-white border-[#E5E5E5] hover:border-[#171717]'
                       }`}
                     >
-                      <div className={`p-2.5 rounded-full ${isSelected ? 'bg-[#333333]' : 'bg-[#F5F5F5]'}`}>
-                        {item.icon}
-                      </div>
-                      <div className="flex-1 space-y-1">
+                      <div className="space-y-3">
                         <div className="flex items-center justify-between">
-                          <h4 className="font-heading font-bold text-sm">{item.title}</h4>
+                          <div className={`p-2.5 rounded-full ${isSelected ? 'bg-[#333333]' : 'bg-[#F5F5F5]'}`}>
+                            {item.icon}
+                          </div>
                           {isSelected && <CheckCircle2 className="w-5 h-5 text-[#FDC503]" />}
                         </div>
-                        <span
-                          className={`inline-block px-2 py-0.5 text-[10px] font-bold rounded ${
-                            isSelected ? 'bg-[#333333] text-[#FDC503]' : 'bg-[#FFF4C2] text-[#806300]'
-                          }`}
-                        >
-                          {item.tag}
-                        </span>
-                        <p className={`text-xs leading-relaxed pt-1 ${isSelected ? 'text-[#D4D4D4]' : 'text-[#525252]'}`}>
+                        <div>
+                          <h4 className="font-heading font-bold text-sm leading-snug">{item.title}</h4>
+                          <span
+                            className={`inline-block mt-1.5 px-2 py-0.5 text-[10px] font-bold rounded ${
+                              isSelected ? 'bg-[#333333] text-[#FDC503]' : 'bg-[#FFF4C2] text-[#806300]'
+                            }`}
+                          >
+                            {item.tag}
+                          </span>
+                        </div>
+                        <p className={`text-xs leading-relaxed ${isSelected ? 'text-[#D4D4D4]' : 'text-[#525252]'}`}>
                           {item.desc}
                         </p>
                       </div>
@@ -684,52 +768,230 @@ export function RegisterReportPage() {
                   );
                 })}
               </div>
+
+              {/* Subformulário de Identificação quando Confidencial ou Identificada */}
+              {formData.registrationType !== 'ANONYMOUS' && (
+                <div className="p-5 bg-[#F9FAFB] border border-[#E5E7EB] rounded-lg space-y-4 pt-4 mt-4 shadow-xs">
+                  <div className="flex items-center gap-2 border-b border-[#E5E7EB] pb-3">
+                    <User className="w-5 h-5 text-[#806300]" />
+                    <h4 className="font-heading font-bold text-sm text-[#0A0A0A]">
+                      Identificação do Manifestante ({formData.registrationType === 'CONFIDENTIAL' ? 'Confidencial' : 'Identificada'})
+                    </h4>
+                  </div>
+
+                  {/* Pergunta: Funcionário Bairral */}
+                  <FormField>
+                    <FormLabel required error={!!errors.isBairralEmployee}>
+                      Você é funcionário(a) do Grupo Bairral?
+                    </FormLabel>
+                    <div className="flex flex-wrap items-center gap-3 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          updateField('isBairralEmployee', 'YES');
+                          if (!formData.relationshipToHospital) {
+                            updateField('relationshipToHospital', 'EMPLOYEE');
+                          }
+                        }}
+                        className={`px-4 py-2 text-xs font-bold rounded-md border flex items-center gap-2 transition-all cursor-pointer ${
+                          formData.isBairralEmployee === 'YES'
+                            ? 'bg-[#171717] text-white border-[#171717] shadow-xs'
+                            : 'bg-white text-[#0A0A0A] border-[#D4D4D4] hover:bg-[#F5F5F5]'
+                        }`}
+                      >
+                        <span className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center ${formData.isBairralEmployee === 'YES' ? 'border-[#FDC503] bg-[#FDC503]' : 'border-[#A3A3A3]'}`}>
+                          {formData.isBairralEmployee === 'YES' && <span className="w-1.5 h-1.5 bg-[#171717] rounded-full" />}
+                        </span>
+                        Sim, sou funcionário(a)
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          updateField('isBairralEmployee', 'NO');
+                          if (formData.relationshipToHospital === 'EMPLOYEE') {
+                            updateField('relationshipToHospital', 'PATIENT');
+                          }
+                        }}
+                        className={`px-4 py-2 text-xs font-bold rounded-md border flex items-center gap-2 transition-all cursor-pointer ${
+                          formData.isBairralEmployee === 'NO'
+                            ? 'bg-[#171717] text-white border-[#171717] shadow-xs'
+                            : 'bg-white text-[#0A0A0A] border-[#D4D4D4] hover:bg-[#F5F5F5]'
+                        }`}
+                      >
+                        <span className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center ${formData.isBairralEmployee === 'NO' ? 'border-[#FDC503] bg-[#FDC503]' : 'border-[#A3A3A3]'}`}>
+                          {formData.isBairralEmployee === 'NO' && <span className="w-1.5 h-1.5 bg-[#171717] rounded-full" />}
+                        </span>
+                        Não sou funcionário(a)
+                      </button>
+                    </div>
+                    <FormMessage error={errors.isBairralEmployee} />
+                  </FormField>
+
+                  {/* Formulário se Funcionário === SIM */}
+                  {formData.isBairralEmployee === 'YES' && (
+                    <div className="space-y-4 pt-3 border-t border-[#E5E5E5]">
+                      <FormField>
+                        <FormLabel required error={!!errors.reporterName}>
+                          Nome Completo
+                        </FormLabel>
+                        <Input
+                          placeholder="Digite seu nome completo..."
+                          value={formData.reporterName}
+                          onChange={(e) => updateField('reporterName', e.target.value)}
+                        />
+                        <FormMessage error={errors.reporterName} />
+                      </FormField>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <FormField>
+                          <FormLabel required error={!!errors.reporterEmail}>
+                            E-mail
+                          </FormLabel>
+                          <Input
+                            type="email"
+                            placeholder="seu.email@bairral.com.br..."
+                            value={formData.reporterEmail}
+                            onChange={(e) => updateField('reporterEmail', e.target.value)}
+                          />
+                          <FormMessage error={errors.reporterEmail} />
+                        </FormField>
+
+                        <FormField>
+                          <FormLabel required error={!!errors.reporterPhone}>
+                            Telefone / WhatsApp
+                          </FormLabel>
+                          <Input
+                            placeholder="(19) 99999-9999..."
+                            value={formData.reporterPhone}
+                            onChange={(e) => updateField('reporterPhone', e.target.value)}
+                          />
+                          <FormMessage error={errors.reporterPhone} />
+                        </FormField>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <FormField>
+                          <FormLabel required error={!!errors.reporterRole}>
+                            Cargo no Grupo Bairral
+                          </FormLabel>
+                          <Select
+                            value={formData.reporterRole}
+                            onChange={(e) => updateField('reporterRole', e.target.value)}
+                            options={[
+                              { label: 'Selecione seu cargo...', value: '' },
+                              { label: 'Enfermeiro(a)', value: 'Enfermeiro(a)' },
+                              { label: 'Técnico(a) de Enfermagem', value: 'Técnico(a) de Enfermagem' },
+                              { label: 'Auxiliar de Enfermagem', value: 'Auxiliar de Enfermagem' },
+                              { label: 'Médico(a) Psiquiatra / Clínico', value: 'Médico(a) Psiquiatra / Clínico' },
+                              { label: 'Psicólogo(a)', value: 'Psicólogo(a)' },
+                              { label: 'Assistente Social', value: 'Assistente Social' },
+                              { label: 'Terapeuta Ocupacional', value: 'Terapeuta Ocupacional' },
+                              { label: 'Farmacêutico(a)', value: 'Farmacêutico(a)' },
+                              { label: 'Nutricionista', value: 'Nutricionista' },
+                              { label: 'Administrativo / RH / Financeiro', value: 'Administrativo / RH / Financeiro' },
+                              { label: 'Manutenção / Higienização / Cozinha', value: 'Manutenção / Higienização / Cozinha' },
+                              { label: 'Gestor / Coordenador / Liderança', value: 'Gestor / Coordenador / Liderança' },
+                              { label: 'Outro Cargo', value: 'Outro Cargo' },
+                            ]}
+                          />
+                          <FormMessage error={errors.reporterRole} />
+                        </FormField>
+
+                        <FormField>
+                          <FormLabel required error={!!errors.relationshipToHospital}>
+                            Sua Relação com o Grupo Bairral
+                          </FormLabel>
+                          <Select
+                            value={formData.relationshipToHospital}
+                            onChange={(e) => updateField('relationshipToHospital', e.target.value)}
+                            options={[
+                              { label: 'Colaborador / Funcionário (CLT)', value: 'EMPLOYEE' },
+                              { label: 'Prestador de Serviços Terceirizado', value: 'SUPPLIER' },
+                              { label: 'Estagiário / Residente', value: 'OTHER' },
+                              { label: 'Corpo Clínico / Credenciado', value: 'EMPLOYEE' },
+                            ]}
+                          />
+                          <FormMessage error={errors.relationshipToHospital} />
+                        </FormField>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Formulário se Funcionário === NÃO */}
+                  {formData.isBairralEmployee === 'NO' && (
+                    <div className="space-y-4 pt-3 border-t border-[#E5E5E5]">
+                      <FormField>
+                        <FormLabel required error={!!errors.reporterName}>
+                          Nome Completo
+                        </FormLabel>
+                        <Input
+                          placeholder="Digite seu nome completo..."
+                          value={formData.reporterName}
+                          onChange={(e) => updateField('reporterName', e.target.value)}
+                        />
+                        <FormMessage error={errors.reporterName} />
+                      </FormField>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <FormField>
+                          <FormLabel required error={!!errors.reporterEmail}>
+                            E-mail
+                          </FormLabel>
+                          <Input
+                            type="email"
+                            placeholder="seu.email@dominio.com..."
+                            value={formData.reporterEmail}
+                            onChange={(e) => updateField('reporterEmail', e.target.value)}
+                          />
+                          <FormMessage error={errors.reporterEmail} />
+                        </FormField>
+
+                        <FormField>
+                          <FormLabel required error={!!errors.reporterPhone}>
+                            Telefone / WhatsApp
+                          </FormLabel>
+                          <Input
+                            placeholder="(19) 99999-9999..."
+                            value={formData.reporterPhone}
+                            onChange={(e) => updateField('reporterPhone', e.target.value)}
+                          />
+                          <FormMessage error={errors.reporterPhone} />
+                        </FormField>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
           {/* ==========================================
-              ETAPA 3 — CLASSIFICAÇÃO
+              ETAPA 3 — UNIDADE DA OCORRÊNCIA
              ========================================== */}
           {currentStep === 2 && (
             <div className="space-y-6">
               <div>
-                <Typography variant="h3">Etapa 3: Classificação da Ocorrência</Typography>
+                <Typography variant="h3">Etapa 3: Unidade da Ocorrência</Typography>
                 <p className="text-xs text-[#737373] mt-1">
-                  Indique a unidade e a categoria para que a demanda seja encaminhada ao setor correto.
+                  Selecione a unidade do Grupo Bairral onde ocorreu o fato para direcionamento correto da demanda.
                 </p>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <FormField>
-                  <FormLabel required error={!!errors.categoryId}>
-                    Categoria do Relato
-                  </FormLabel>
-                  <Select
-                    value={formData.categoryId}
-                    onChange={(e) => updateField('categoryId', e.target.value)}
-                    options={[
-                      { label: 'Selecione a categoria...', value: '' },
-                      ...categories.map((c) => ({ label: `${c.name} (SLA: ${c.slaDays} dias)`, value: c.id })),
-                    ]}
-                  />
-                  <FormMessage error={errors.categoryId} />
-                </FormField>
-
-                <FormField>
-                  <FormLabel required error={!!errors.unitId}>
-                    Unidade do Grupo Bairral
-                  </FormLabel>
-                  <Select
-                    value={formData.unitId}
-                    onChange={(e) => updateField('unitId', e.target.value)}
-                    options={[
-                      { label: 'Selecione a unidade hospitalar...', value: '' },
-                      ...units.map((u) => ({ label: `${u.name} (${u.code})`, value: u.id })),
-                    ]}
-                  />
-                  <FormMessage error={errors.unitId} />
-                </FormField>
-              </div>
+              <FormField>
+                <FormLabel required error={!!errors.unitId}>
+                  Unidade do Grupo Bairral
+                </FormLabel>
+                <Select
+                  value={formData.unitId}
+                  onChange={(e) => updateField('unitId', e.target.value)}
+                  options={[
+                    { label: 'Selecione a unidade hospitalar do Grupo Bairral...', value: '' },
+                    ...units.map((u) => ({ label: `${u.name} (${u.code})`, value: u.id })),
+                  ]}
+                />
+                <FormMessage error={errors.unitId} />
+              </FormField>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <FormField>
@@ -761,26 +1023,6 @@ export function RegisterReportPage() {
                   />
                 </FormField>
               </div>
-
-              <FormField>
-                <FormLabel required error={!!errors.relationshipToHospital}>
-                  Sua Relação com o Grupo Bairral
-                </FormLabel>
-                <RadioGroup
-                  name="relationshipToHospital"
-                  options={[
-                    { label: 'Colaborador / Funcionário', value: 'EMPLOYEE' },
-                    { label: 'Paciente / Ex-paciente', value: 'PATIENT' },
-                    { label: 'Familiar / Acompanhante', value: 'FAMILY_MEMBER' },
-                    { label: 'Fornecedor / Prestador de Serviços', value: 'SUPPLIER' },
-                    { label: 'Comunidade / Visitante', value: 'COMMUNITY' },
-                    { label: 'Outro Vínculo', value: 'OTHER' },
-                  ]}
-                  value={formData.relationshipToHospital}
-                  onChange={(val) => updateField('relationshipToHospital', val)}
-                />
-                <FormMessage error={errors.relationshipToHospital} />
-              </FormField>
             </div>
           )}
 
@@ -1072,21 +1314,17 @@ export function RegisterReportPage() {
                   </div>
                 </div>
 
-                {/* Block 2: Classificação */}
+                {/* Block 2: Unidade e Local */}
                 <div className="p-4 bg-[#F5F5F5] border border-[#E5E5E5] rounded-md space-y-2">
                   <div className="flex items-center justify-between border-b border-[#E5E5E5] pb-2">
                     <span className="font-heading font-bold text-xs text-[#0A0A0A] uppercase tracking-wide flex items-center gap-1.5">
-                      <Building className="w-4 h-4 text-[#FDC503]" /> 2. Origem e Classificação
+                      <Building className="w-4 h-4 text-[#FDC503]" /> 2. Unidade e Localização
                     </span>
                     <Button type="button" variant="ghost" size="sm" onClick={() => handleJumpToStep(2)} className="h-7 text-xs">
                       <Edit3 className="w-3.5 h-3.5 mr-1" /> Editar
                     </Button>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                    <div>
-                      <span className="text-[#737373]">Categoria:</span>{' '}
-                      <strong className="text-[#0A0A0A]">{selectedCategoryObj?.name || 'Não informada'}</strong>
-                    </div>
                     <div>
                       <span className="text-[#737373]">Unidade:</span>{' '}
                       <strong className="text-[#0A0A0A]">{selectedUnitObj?.name || 'Não informada'}</strong>

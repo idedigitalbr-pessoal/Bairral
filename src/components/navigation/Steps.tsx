@@ -88,7 +88,17 @@ export function Steps({ steps, currentStep, className, onStepClick }: StepsProps
                   {step.title}
                 </span>
                 {step.description && (
-                  <span className="block text-[10px] text-[#737373] hidden lg:block">{step.description}</span>
+                  <span
+                    className={cn(
+                      'block text-[10px] leading-tight truncate max-w-[100px] transition-colors mx-auto',
+                      isCompleted || isCurrent
+                        ? 'font-bold text-[#806300] bg-[#FFF4C2]/60 px-1 py-0.5 rounded'
+                        : 'text-[#737373]'
+                    )}
+                    title={step.description}
+                  >
+                    {step.description}
+                  </span>
                 )}
               </div>
             </div>
