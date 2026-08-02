@@ -6,31 +6,37 @@ export interface BrandLogoProps extends React.HTMLAttributes<HTMLDivElement> {
   variant?: 'full' | 'compact' | 'light';
 }
 
+export function BairralEmblemSvg({ className = 'h-8 w-auto' }: { className?: string }) {
+  return (
+    <svg viewBox="26 12 48 88" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
+      <path
+        d="M61.5 18L74 12V34C74 49 63 57 48 63C33 69 26 77 26 88V100L38.5 94V79C38.5 71 45.5 64 59 58C61.5 52 61.5 35 61.5 18Z"
+        fill="#FDC503"
+      />
+    </svg>
+  );
+}
+
 export function BrandLogo({ size = 'md', variant = 'full', className, ...props }: BrandLogoProps) {
   const sizeClasses = {
-    sm: { box: 'w-8 h-8 text-sm', title: 'text-xs', subtitle: 'text-[9px]' },
-    md: { box: 'w-10 h-10 text-base', title: 'text-sm', subtitle: 'text-[10px]' },
-    lg: { box: 'w-12 h-12 text-lg', title: 'text-base', subtitle: 'text-xs' },
+    sm: { box: 'h-6', icon: 'h-6 w-auto', title: 'text-xs', subtitle: 'text-[9px]' },
+    md: { box: 'h-8', icon: 'h-8 w-auto', title: 'text-sm', subtitle: 'text-[10px]' },
+    lg: { box: 'h-10', icon: 'h-10 w-auto', title: 'text-base', subtitle: 'text-xs' },
   };
 
   const isLight = variant === 'light';
 
   return (
-    <div className={cn('flex items-center gap-2.5 select-none', className)} {...props}>
-      <div
-        className={cn(
-          'bg-[#FDC503] text-[#0A0A0A] font-heading font-extrabold rounded flex items-center justify-center shrink-0 shadow-xs',
-          sizeClasses[size].box
-        )}
-      >
-        GB
+    <div className={cn('flex items-center gap-2.5 select-none group', className)} {...props}>
+      <div className={cn('flex items-center justify-center shrink-0 transition-transform group-hover:scale-105', sizeClasses[size].box)}>
+        <BairralEmblemSvg className={sizeClasses[size].icon} />
       </div>
 
       {variant !== 'compact' && (
-        <div className="flex flex-col">
+        <div className="flex flex-col justify-center">
           <span
             className={cn(
-              'font-heading font-bold leading-tight tracking-tight',
+              'font-heading font-extrabold leading-tight tracking-tight whitespace-nowrap',
               sizeClasses[size].title,
               isLight ? 'text-white' : 'text-[#0A0A0A]'
             )}
@@ -39,9 +45,9 @@ export function BrandLogo({ size = 'md', variant = 'full', className, ...props }
           </span>
           <span
             className={cn(
-              'font-sans uppercase font-medium tracking-wider',
+              'font-sans uppercase font-extrabold tracking-[0.16em] whitespace-nowrap mt-1',
               sizeClasses[size].subtitle,
-              isLight ? 'text-[#A3A3A3]' : 'text-[#737373]'
+              isLight ? 'text-white' : 'text-[#0A0A0A]'
             )}
           >
             Gestão & Operações
@@ -51,3 +57,5 @@ export function BrandLogo({ size = 'md', variant = 'full', className, ...props }
     </div>
   );
 }
+
+

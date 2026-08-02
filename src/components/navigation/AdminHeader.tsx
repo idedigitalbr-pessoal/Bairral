@@ -4,6 +4,7 @@ import { Breadcrumb, BreadcrumbItem } from './Breadcrumb';
 import { NotificationsButton } from './NotificationsButton';
 import { UserMenu } from './UserMenu';
 import { IconButton } from '../ui/IconButton';
+import { BrandLogo } from '../ui/BrandLogo';
 
 export interface AdminHeaderProps {
   onOpenMobileSidebar: () => void;
@@ -59,7 +60,7 @@ export function AdminHeader({ onOpenMobileSidebar }: AdminHeaderProps) {
 
   return (
     <header className="h-16 bg-white border-b border-[#E5E5E5] px-4 sm:px-6 flex items-center justify-between gap-4 sticky top-0 z-20 shadow-xs">
-      {/* Left Area: Mobile hamburger & Breadcrumb */}
+      {/* Left Area: Mobile hamburger, logo & Breadcrumb */}
       <div className="flex items-center gap-3">
         <IconButton
           icon={Menu}
@@ -69,6 +70,10 @@ export function AdminHeader({ onOpenMobileSidebar }: AdminHeaderProps) {
           className="md:hidden text-[#171717]"
           onClick={onOpenMobileSidebar}
         />
+
+        <Link to="/admin" className="md:hidden flex items-center">
+          <BrandLogo size="sm" variant="compact" />
+        </Link>
 
         <div className="hidden sm:block">
           <Breadcrumb items={getBreadcrumbs()} />
