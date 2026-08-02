@@ -56,9 +56,10 @@ export function RolesPage() {
 
   const handleCreateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    await createRole(roleForm);
+    await createRole(roleForm as any);
     setIsCreateModalOpen(false);
   };
+
 
   const handleOpenEdit = (role: Role) => {
     setSelectedRole(role);
@@ -75,10 +76,11 @@ export function RolesPage() {
     if (!selectedRole) return;
     await updateRole({
       id: selectedRole.id,
-      data: roleForm,
+      data: roleForm as any,
     });
     setIsEditModalOpen(false);
   };
+
 
   const togglePermission = (permId: AdminPermission) => {
     setRoleForm((prev) => {

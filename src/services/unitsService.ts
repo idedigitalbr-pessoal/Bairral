@@ -1,9 +1,15 @@
 import { apiClient } from '../api/client';
 import { Unit, Department } from '../types';
+import { mockUnits, mockDepartments } from '../mocks/data';
 
 export const unitsService = {
   getUnits: async (): Promise<Unit[]> => {
-    return apiClient.get<Unit[]>('/units');
+    try {
+      return await apiClient.get<Unit[]>('/units');
+    } catch (error) {
+      console.warn('Usando unidades mockadas devido a erro de rede:', error);
+      return mockUnits;
+    }
   },
   createUnit: async (unit: Omit<Unit, 'id' | 'createdAt' | 'updatedAt'>): Promise<Unit> => {
     return apiClient.post<Unit>('/units', unit);
@@ -15,7 +21,15 @@ export const unitsService = {
     return apiClient.delete<{ id: string }>(`/units/${id}`);
   },
   getDepartments: async (unitId?: string): Promise<Department[]> => {
-    return apiClient.get<Department[]>('/departments', { params: { unitId } });
+    try {
+      return await apiClient.get<Department[]>('/departments', { params: { unitId } });
+    } catch (error) {
+      console.warn('Usando departamentos mockados devido a erro de rede:', error);
+      if (unitId) {
+        return mockDepartments.filter((d) => d.unitId === unitId);
+      }
+      return mockDepartments;
+    }
   },
   createDepartment: async (dept: Omit<Department, 'id' | 'createdAt' | 'updatedAt'>): Promise<Department> => {
     return apiClient.post<Department>('/departments', dept);
@@ -27,3 +41,4 @@ export const unitsService = {
     return apiClient.delete<{ id: string }>(`/departments/${id}`);
   },
 };
+

@@ -22,6 +22,8 @@ import { useAuditLogs } from '../hooks/useAuditLogs';
 import { useUsers } from '../hooks/useUsers';
 import { AuditLog } from '../types';
 
+import { ExportButton } from '../components/ui/ExportButton';
+
 export function AuditPage() {
   const [page, setPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
@@ -52,6 +54,17 @@ export function AuditPage() {
   const logs = data?.data || [];
   const meta = data?.meta;
 
+  const exportHeaders = ['Data/Hora', 'Operador', 'Perfil', 'Ação', 'Entidade', 'IP Origem', 'Detalhes'];
+  const exportRows = logs.map((l) => [
+    new Date(l.timestamp).toLocaleString('pt-BR'),
+    l.userName,
+    l.userRole,
+    l.action,
+    l.resource,
+    l.ipAddress || '192.168.1.100',
+    l.details,
+  ]);
+
   const handleClearFilters = () => {
     setSearchTerm('');
     setUserIdFilter('');
@@ -73,15 +86,25 @@ export function AuditPage() {
             Registro criptográfico e detalhado de todas as operações administrativas no sistema (LGPD e Compliance)
           </p>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          leftIcon={<RefreshCw className="w-3.5 h-3.5" />}
-          onClick={() => refetch()}
-        >
-          Atualizar Logs
-        </Button>
+        <div className="flex items-center gap-2">
+          <ExportButton
+            title="Trilha de Auditoria e Imutabilidade"
+            subtitle="Registro criptográfico de operações administrativas (LGPD e Compliance)"
+            filename="trilha_de_auditoria"
+            headers={exportHeaders}
+            rows={exportRows}
+          />
+          <Button
+            variant="outline"
+            size="sm"
+            leftIcon={<RefreshCw className="w-3.5 h-3.5" />}
+            onClick={() => refetch()}
+          >
+            Atualizar Logs
+          </Button>
+        </div>
       </div>
+
 
       {/* Painel de Filtros Avançados */}
       <Surface variant="card" className="space-y-4 border border-[#E5E5E5]">

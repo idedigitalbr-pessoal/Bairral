@@ -235,22 +235,26 @@ async function main() {
     }
   }
 
-  // 5. Usuário Administrador Inicial
+  // 5. Usuários Adicionais e Perfis
   const superAdminRole = await prisma.role.findUnique({ where: { code: 'SUPER_ADMIN' } });
-  if (superAdminRole) {
-    const defaultPasswordHash = await bcrypt.hash('Admin@Bairral2026', 10);
-    const adminUser = await prisma.user.upsert({
-      where: { email: 'admin@bairral.com.br' },
-      update: { name: 'Administrador do Sistema' },
-      create: {
-        name: 'Administrador do Sistema',
-        email: 'admin@bairral.com.br',
-        passwordHash: defaultPasswordHash,
-        status: 'ACTIVE',
-        isFirstAccess: false,
-      },
-    });
+  const ethicsManagerRole = await prisma.role.findUnique({ where: { code: 'ETHICS_MANAGER' } });
+  const investigatorRole = await prisma.role.findUnique({ where: { code: 'INVESTIGATOR' } });
 
+  const defaultPasswordHash = await bcrypt.hash('Admin@Bairral2026', 10);
+
+  const adminUser = await prisma.user.upsert({
+    where: { email: 'admin@bairral.com.br' },
+    update: { name: 'Administrador do Sistema' },
+    create: {
+      name: 'Administrador do Sistema',
+      email: 'admin@bairral.com.br',
+      passwordHash: defaultPasswordHash,
+      status: 'ACTIVE',
+      isFirstAccess: false,
+    },
+  });
+
+  if (superAdminRole) {
     await prisma.userRole.upsert({
       where: {
         userId_roleId: {
@@ -262,6 +266,297 @@ async function main() {
       create: {
         userId: adminUser.id,
         roleId: superAdminRole.id,
+      },
+    });
+  }
+
+  const userCompliance = await prisma.user.upsert({
+    where: { email: 'mariana.souza@bairral.com.br' },
+    update: { name: 'Mariana Ferreira Souza' },
+    create: {
+      name: 'Mariana Ferreira Souza',
+      email: 'mariana.souza@bairral.com.br',
+      passwordHash: defaultPasswordHash,
+      status: 'ACTIVE',
+      isFirstAccess: false,
+    },
+  });
+
+  if (ethicsManagerRole) {
+    await prisma.userRole.upsert({
+      where: {
+        userId_roleId: {
+          userId: userCompliance.id,
+          roleId: ethicsManagerRole.id,
+        },
+      },
+      update: {},
+      create: {
+        userId: userCompliance.id,
+        roleId: ethicsManagerRole.id,
+      },
+    });
+  }
+
+  const userInvestigator = await prisma.user.upsert({
+    where: { email: 'roberto.mendes@bairral.com.br' },
+    update: { name: 'Dr. Roberto Mendes' },
+    create: {
+      name: 'Dr. Roberto Mendes',
+      email: 'roberto.mendes@bairral.com.br',
+      passwordHash: defaultPasswordHash,
+      status: 'ACTIVE',
+      isFirstAccess: false,
+    },
+  });
+
+  if (investigatorRole) {
+    await prisma.userRole.upsert({
+      where: {
+        userId_roleId: {
+          userId: userInvestigator.id,
+          roleId: investigatorRole.id,
+        },
+      },
+      update: {},
+      create: {
+        userId: userInvestigator.id,
+        roleId: investigatorRole.id,
+      },
+    });
+  }
+
+  // Buscar referências no BD para vincular manifestações
+  const allCategories = await prisma.category.findMany();
+  const allUnits = await prisma.unit.findMany({ include: { departments: true } });
+
+  // 6. Criar Manifestações (Reports) para o Dashboard
+  const sampleReportsData = [
+    {
+      title: 'Relato sobre conduta inadequada na recepção da ala A',
+      description: 'Ocorreu um episódio de tratamento ríspido com acompanhante de paciente na recepção principal.',
+      type: 'DEVIATION' as const,
+      submissionMode: 'ANONYMOUS' as const,
+      status: 'SUBMITTED' as const,
+      riskLevel: 'MEDIUM' as const,
+      priority: 'MEDIUM' as const,
+      catCode: 'ETHICAL_DEVIATION',
+      daysAgo: 1,
+    },
+    {
+      title: 'Descumprimento de protocolo de higiene no refeitório',
+      description: 'Inobservância do uso obrigatorio de equipamentos de proteção individual durante manipulação de refeições.',
+      type: 'SAFETY' as const,
+      submissionMode: 'IDENTIFIED' as const,
+      status: 'UNDER_TRIAGE' as const,
+      riskLevel: 'HIGH' as const,
+      priority: 'HIGH' as const,
+      catCode: 'PATIENT_SAFETY_LGPD',
+      daysAgo: 3,
+    },
+    {
+      title: 'Vazamento recorrente de dados de prontuário eletrônico',
+      description: 'Identificado acesso não autorizado a prontuários na ala de internação por funcionário sem atribuição clínica.',
+      type: 'PRIVACY' as const,
+      submissionMode: 'CONFIDENTIAL' as const,
+      status: 'UNDER_INVESTIGATION' as const,
+      riskLevel: 'CRITICAL' as const,
+      priority: 'URGENT' as const,
+      catCode: 'PATIENT_SAFETY_LGPD',
+      daysAgo: 5,
+    },
+    {
+      title: 'Suspeita de favorecimento em processo licitatório de pintura',
+      description: 'Apuração sobre orçamentos divergentes apresentados por prestadores de serviços de reforma predial.',
+      type: 'FRAUD' as const,
+      submissionMode: 'ANONYMOUS' as const,
+      status: 'ACTION_PLAN' as const,
+      riskLevel: 'HIGH' as const,
+      priority: 'HIGH' as const,
+      catCode: 'FRAUD_CORRUPTION',
+      daysAgo: 10,
+    },
+    {
+      title: 'Assédio moral recorrente durante trocas de plantão',
+      description: 'Relato confidencial indicando linguagem intimidatória por parte de liderança em relação a subordinados diretos.',
+      type: 'HARASSMENT' as const,
+      submissionMode: 'CONFIDENTIAL' as const,
+      status: 'UNDER_INVESTIGATION' as const,
+      riskLevel: 'HIGH' as const,
+      priority: 'HIGH' as const,
+      catCode: 'MORAL_HARASSMENT',
+      daysAgo: 8,
+    },
+    {
+      title: 'Elogio ao atendimento da equipe de enfermagem da UTI',
+      description: 'Manifestação de agradecimento da família de paciente pelo acolhimento humanizado e dedicação.',
+      type: 'OTHER' as const,
+      submissionMode: 'IDENTIFIED' as const,
+      status: 'CONCLUDED' as const,
+      riskLevel: 'LOW' as const,
+      priority: 'LOW' as const,
+      catCode: 'OTHER',
+      daysAgo: 15,
+    },
+    {
+      title: 'Uso indevido de veículo institucional em horários não comerciais',
+      description: 'Veículo com identificação do hospital foi visto estacionado fora de expediente em local inapropriado.',
+      type: 'DEVIATION' as const,
+      submissionMode: 'ANONYMOUS' as const,
+      status: 'CONCLUDED' as const,
+      riskLevel: 'MEDIUM' as const,
+      priority: 'MEDIUM' as const,
+      catCode: 'ASSET_MISUSE',
+      daysAgo: 20,
+    },
+    {
+      title: 'Falta de manutenção no elevador da Unidade Infantil',
+      description: 'Elevador apresentando ruídos e paralisações bruscas, colocando em risco transporte de pacientes.',
+      type: 'SAFETY' as const,
+      submissionMode: 'IDENTIFIED' as const,
+      status: 'ACTION_PLAN' as const,
+      riskLevel: 'HIGH' as const,
+      priority: 'HIGH' as const,
+      catCode: 'PATIENT_SAFETY_LGPD',
+      daysAgo: 12,
+    },
+    {
+      title: 'Incompatibilidade em prestação de contas de suprimentos médicos',
+      description: 'Discrepância entre contagem física de estoque e relatório de saída de medicamentos de alto custo.',
+      type: 'FRAUD' as const,
+      submissionMode: 'ANONYMOUS' as const,
+      status: 'UNDER_INVESTIGATION' as const,
+      riskLevel: 'CRITICAL' as const,
+      priority: 'URGENT' as const,
+      catCode: 'FRAUD_CORRUPTION',
+      daysAgo: 6,
+    },
+    {
+      title: 'Sugestão de ampliação das sinalizações para visitantes',
+      description: 'Sugestão para inclusão de placas indicativas com maior contraste e acessibilidade visual nas entradas.',
+      type: 'OTHER' as const,
+      submissionMode: 'IDENTIFIED' as const,
+      status: 'CONCLUDED' as const,
+      riskLevel: 'LOW' as const,
+      priority: 'LOW' as const,
+      catCode: 'OTHER',
+      daysAgo: 25,
+    },
+  ];
+
+  for (let idx = 0; idx < sampleReportsData.length; idx++) {
+    const item = sampleReportsData[idx];
+    const protocol = `GB-202608-P${String(idx + 1).padStart(3, '0')}`;
+    const trackingPasswordHash = await bcrypt.hash(`SenhaSegura${idx + 1}`, 10);
+
+    const category = allCategories.find((c) => c.code === item.catCode) || allCategories[0];
+    const unit = allUnits[idx % allUnits.length];
+    const department = unit.departments[0];
+
+    const createdAt = new Date(Date.now() - item.daysAgo * 24 * 60 * 60 * 1000);
+    const dueAt = new Date(createdAt.getTime() + (category?.slaDays || 15) * 24 * 60 * 60 * 1000);
+
+    const report = await prisma.report.upsert({
+      where: { protocol },
+      update: {
+        title: item.title,
+        status: item.status,
+        riskLevel: item.riskLevel,
+      },
+      create: {
+        protocol,
+        trackingPasswordHash,
+        title: item.title,
+        description: item.description,
+        type: item.type,
+        submissionMode: item.submissionMode,
+        status: item.status,
+        riskLevel: item.riskLevel,
+        priority: item.priority,
+        categoryId: category?.id,
+        unitId: unit?.id,
+        departmentId: department?.id,
+        assignedUserId: item.status !== 'SUBMITTED' ? userCompliance.id : null,
+        dueAt,
+        createdAt,
+        closedAt: item.status === 'CONCLUDED' ? new Date(createdAt.getTime() + 5 * 24 * 60 * 60 * 1000) : null,
+      },
+    });
+
+    // Histórico de status
+    await prisma.statusHistory.create({
+      data: {
+        reportId: report.id,
+        previousStatus: null,
+        newStatus: 'SUBMITTED',
+        createdAt,
+      },
+    });
+
+    if (item.status !== 'SUBMITTED') {
+      await prisma.statusHistory.create({
+        data: {
+          reportId: report.id,
+          previousStatus: 'SUBMITTED',
+          newStatus: item.status,
+          changedByUserId: adminUser.id,
+          reason: 'Encaminhamento para triagem/apuração pelo Comitê de Ética.',
+          createdAt: new Date(createdAt.getTime() + 12 * 60 * 60 * 1000),
+        },
+      });
+    }
+
+    // Criar Plano de Ação se status for ACTION_PLAN ou CONCLUDED
+    if (item.status === 'ACTION_PLAN' || item.status === 'CONCLUDED') {
+      const planStatus = item.status === 'CONCLUDED' ? 'COMPLETED' as const : 'IN_PROGRESS' as const;
+      await prisma.actionPlan.create({
+        data: {
+          reportId: report.id,
+          title: `Plano de Ação Corretiva - ${item.title.substring(0, 40)}`,
+          description: 'Adoção de medidas de orientação, reciclagem de equipe e revisão de procedimentos operacionais padrão.',
+          responsibleUserId: userInvestigator.id,
+          responsibleName: userInvestigator.name,
+          dueDate: new Date(createdAt.getTime() + 10 * 24 * 60 * 60 * 1000),
+          status: planStatus,
+          createdByUserId: adminUser.id,
+          createdAt,
+          completedAt: planStatus === 'COMPLETED' ? new Date(createdAt.getTime() + 4 * 24 * 60 * 60 * 1000) : null,
+        },
+      });
+    }
+
+    // Criar Mensagem Pública
+    await prisma.publicMessage.create({
+      data: {
+        reportId: report.id,
+        senderType: 'ADMIN',
+        senderUserId: adminUser.id,
+        content: `Sua manifestação sob protocolo ${protocol} foi recebida e registrada com sucesso no sistema de integridade do Grupo Bairral.`,
+        createdAt,
+      },
+    });
+  }
+
+  // 7. Logs de Auditoria
+  const auditActions = [
+    { action: 'LOGIN_SUCCESS', entity: 'User', details: { message: 'Login realizado com sucesso' } },
+    { action: 'VIEW_REPORT', entity: 'Report', details: { message: 'Consulta a detalhes de manifestação' } },
+    { action: 'UPDATE_STATUS', entity: 'Report', details: { message: 'Alteração de status do caso para Em Apuração' } },
+    { action: 'CREATE_ACTION_PLAN', entity: 'ActionPlan', details: { message: 'Criação de plano de ação preventivo' } },
+  ];
+
+  for (let i = 0; i < auditActions.length; i++) {
+    const act = auditActions[i];
+    await prisma.auditLog.create({
+      data: {
+        userId: adminUser.id,
+        userEmail: adminUser.email,
+        action: act.action,
+        entity: act.entity,
+        details: act.details,
+        ipAddress: '127.0.0.1',
+        userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        createdAt: new Date(Date.now() - i * 3600000 * 6),
       },
     });
   }

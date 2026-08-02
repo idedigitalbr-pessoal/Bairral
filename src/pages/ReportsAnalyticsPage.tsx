@@ -1,11 +1,20 @@
-import { BarChart3, Download, Calendar } from 'lucide-react';
+import { BarChart3, Calendar } from 'lucide-react';
 import { Surface } from '../components/ui/Surface';
 import { Typography } from '../components/ui/Typography';
-import { Button } from '../components/ui/Button';
 import { MetricCard } from '../components/data-display/MetricCard';
 import { Grid } from '../components/ui/Grid';
+import { ExportButton } from '../components/ui/ExportButton';
 
 export function ReportsAnalyticsPage() {
+  const analyticsHeaders = ['Métrica de Governança', 'Valor / Indicador', 'Meta / SLA', 'Situação'];
+  const analyticsRows = [
+    ['Manifestações no Ano', '1.480 relatos', 'Meta Anual', 'Acumulado 2026'],
+    ['Tempo Médio de Resolução', '4.2 dias', 'SLA Meta: 7.0 dias', 'Dentro da Meta'],
+    ['Índice de Resolutividade', '98.1%', 'Meta: 95.0%', 'Excelente'],
+    ['Casos Críticos Resolvidos', '92.4%', 'Meta: 90.0%', 'Satisfatório'],
+    ['Planos de Ação Concluídos', '88.5%', 'Meta: 85.0%', 'Em Dia'],
+  ];
+
   return (
     <div className="space-y-6 pb-8">
       <div className="flex items-center justify-between border-b border-[#E5E5E5] pb-4">
@@ -13,10 +22,15 @@ export function ReportsAnalyticsPage() {
           <Typography variant="h2">Relatórios & Estatísticas</Typography>
           <p className="text-xs text-[#737373]">Consolidado de dados operacionais e indicadores de governança</p>
         </div>
-        <Button variant="outline" size="sm" leftIcon={<Download className="w-4 h-4" />}>
-          Exportar Relatório PDF
-        </Button>
+        <ExportButton
+          title="Relatório Consolidado de Estatísticas e Governança"
+          subtitle="Indicadores de resolutividade, SLA e desempenho operacional"
+          filename="relatorio_estatisticas_governanca"
+          headers={analyticsHeaders}
+          rows={analyticsRows}
+        />
       </div>
+
 
       <Grid cols={3} gap="4">
         <MetricCard

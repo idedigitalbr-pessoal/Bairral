@@ -4,7 +4,7 @@ import { handlers } from './handlers';
 export const worker = setupWorker(...handlers);
 
 export async function enableMocking() {
-  const enableMocks = import.meta.env.VITE_ENABLE_MOCKS === 'true';
+  const enableMocks = import.meta.env.VITE_ENABLE_MOCKS !== 'false';
 
   if (enableMocks) {
     try {

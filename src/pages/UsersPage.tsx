@@ -26,6 +26,8 @@ import { useUnits } from '../hooks/useUnits';
 import { useDepartments } from '../hooks/useDepartments';
 import { User } from '../types';
 
+import { ExportButton } from '../components/ui/ExportButton';
+
 export function UsersPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState('');
@@ -61,6 +63,22 @@ export function UsersPage() {
   const { units = [] } = useUnits();
   const { departments = [] } = useDepartments(createForm.unitId || editForm.unitId);
 
+  const filteredUsers = users.filter((u) => {
+    if (roleFilter && u.roleId !== roleFilter) return false;
+    if (statusFilter && u.status !== statusFilter) return false;
+    return true;
+  });
+
+  const exportHeaders = ['Nome', 'E-mail Institucional', 'Perfil / Função', 'Unidade / Depto', 'Status', 'Data de Cadastro'];
+  const exportRows = filteredUsers.map((u) => [
+    u.name,
+    u.email,
+    u.roleName || 'Sem Perfil',
+    `${u.unitName || 'Geral'}${u.departmentName ? ` - ${u.departmentName}` : ''}`,
+    u.status === 'ACTIVE' ? 'Ativo' : u.status === 'INACTIVE' ? 'Inativo' : 'Suspenso',
+    new Date(u.createdAt).toLocaleDateString('pt-BR'),
+  ]);
+
   // Handlers
   const handleOpenCreate = () => {
     setCreateForm({
@@ -73,6 +91,7 @@ export function UsersPage() {
     });
     setIsCreateModalOpen(true);
   };
+
 
   const handleCreateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -109,13 +128,8 @@ export function UsersPage() {
     }
   };
 
-  const filteredUsers = users.filter((u) => {
-    if (roleFilter && u.roleId !== roleFilter) return false;
-    if (statusFilter && u.status !== statusFilter) return false;
-    return true;
-  });
-
   return (
+
     <div className="space-y-6 pb-8">
       {/* Cabeçalho */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-[#E5E5E5] pb-4 gap-4">
@@ -125,12 +139,22 @@ export function UsersPage() {
             Gerenciamento de operadores, investigadores, gestores e perfis de acesso ao sistema
           </p>
         </div>
-        <PermissionGate permission={AdminPermissionEnum.MANAGE_USERS}>
-          <Button variant="primary" size="sm" leftIcon={<UserPlus className="w-4 h-4" />} onClick={handleOpenCreate}>
-            Novo Usuário
-          </Button>
-        </PermissionGate>
+        <div className="flex items-center gap-2">
+          <ExportButton
+            title="Gestão de Usuários"
+            subtitle="Listagem de operadores, investigadores e gestores cadastrados"
+            filename="usuarios_cadastrados"
+            headers={exportHeaders}
+            rows={exportRows}
+          />
+          <PermissionGate permission={AdminPermissionEnum.MANAGE_USERS}>
+            <Button variant="primary" size="sm" leftIcon={<UserPlus className="w-4 h-4" />} onClick={handleOpenCreate}>
+              Novo Usuário
+            </Button>
+          </PermissionGate>
+        </div>
       </div>
+
 
       {/* Barra de Busca e Filtros */}
       <Surface variant="card" className="flex flex-col sm:flex-row gap-3 items-center justify-between">

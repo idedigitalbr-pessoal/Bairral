@@ -32,6 +32,8 @@ import { useUsers } from '../hooks/useUsers';
 import { useReports } from '../hooks/useReports';
 import { ActionPlanExtended } from '../services/actionPlansService';
 
+import { ExportButton } from '../components/ui/ExportButton';
+
 export function ActionPlansPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
@@ -84,6 +86,22 @@ export function ActionPlansPage() {
   const completedCount = plans.filter((p) => p.status === 'COMPLETED').length;
   const overdueCount = plans.filter((p) => p.daysOverdue && p.daysOverdue > 0 && p.status !== 'COMPLETED').length;
 
+  const exportHeaders = ['Protocolo', 'Título do Plano', 'Responsável', 'Status', 'Progresso (%)', 'Data Limite'];
+  const exportRows = plans.map((p) => [
+    p.reportProtocol || 'N/D',
+    p.title,
+    p.responsibleName,
+    p.status === 'COMPLETED'
+      ? 'Concluído'
+      : p.status === 'IN_PROGRESS'
+      ? 'Em Andamento'
+      : p.status === 'CANCELLED'
+      ? 'Cancelado'
+      : 'Não Iniciado',
+    `${p.progressPercentage}%`,
+    p.dueDate ? new Date(p.dueDate).toLocaleDateString('pt-BR') : 'N/D',
+  ]);
+
   // Handlers
   const handleOpenCreate = () => {
     setCreateForm({
@@ -95,6 +113,7 @@ export function ActionPlansPage() {
     });
     setIsCreateModalOpen(true);
   };
+
 
   const handleCreateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -196,12 +215,22 @@ export function ActionPlansPage() {
             Gestão de medidas corretivas, tarefas operacionais e validação de resolutividade
           </p>
         </div>
-        <PermissionGate permission={AdminPermissionEnum.CREATE_ACTION_PLAN}>
-          <Button variant="primary" size="sm" leftIcon={<Plus className="w-4 h-4" />} onClick={handleOpenCreate}>
-            Novo Plano de Ação
-          </Button>
-        </PermissionGate>
+        <div className="flex items-center gap-2">
+          <ExportButton
+            title="Planos de Ação Corretivos"
+            subtitle="Gestão de medidas corretivas e tarefas operacionais"
+            filename="planos_de_acao"
+            headers={exportHeaders}
+            rows={exportRows}
+          />
+          <PermissionGate permission={AdminPermissionEnum.CREATE_ACTION_PLAN}>
+            <Button variant="primary" size="sm" leftIcon={<Plus className="w-4 h-4" />} onClick={handleOpenCreate}>
+              Novo Plano de Ação
+            </Button>
+          </PermissionGate>
+        </div>
       </div>
+
 
       {/* Cards de Métricas */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

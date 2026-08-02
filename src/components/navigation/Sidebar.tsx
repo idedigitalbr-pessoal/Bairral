@@ -117,9 +117,9 @@ export function Sidebar({
   };
 
   const renderNavContent = () => (
-    <div className="flex flex-col h-full bg-[#171717] text-white select-none">
+    <div className="flex flex-col h-full bg-[#171717] text-white select-none overflow-x-hidden">
       {/* Top Sidebar Header */}
-      <div className="h-16 px-4 flex items-center justify-between border-b border-[#262626]">
+      <div className={cn("h-16 flex items-center border-b border-[#262626]", isCollapsed ? "justify-center px-1" : "justify-between px-4")}>
         {!isCollapsed ? (
           <Link to="/admin" className="flex items-center gap-2">
             <BrandLogo size="sm" variant="light" />
@@ -141,7 +141,7 @@ export function Sidebar({
       </div>
 
       {/* Navigation Items */}
-      <div className="flex-1 overflow-y-auto py-4 space-y-6 px-3 custom-scrollbar">
+      <div className={cn("flex-1 overflow-y-auto overflow-x-hidden py-4 custom-scrollbar", isCollapsed ? "px-1.5 space-y-4" : "px-3 space-y-6")}>
         {navGroups.map((group, idx) => {
           // Filtra itens com permissão concedida para visualização limpa
           const visibleItems = group.items.filter(
@@ -151,7 +151,7 @@ export function Sidebar({
           if (visibleItems.length === 0) return null;
 
           return (
-            <div key={idx} className="space-y-1">
+            <div key={idx} className={cn("space-y-1", isCollapsed && "flex flex-col items-center")}>
               {group.groupName && !isCollapsed && (
                 <h5 className="px-3 text-[10px] font-bold uppercase tracking-wider text-[#737373] mb-1.5">
                   {group.groupName}
@@ -168,7 +168,10 @@ export function Sidebar({
                     to={item.href}
                     onClick={onCloseMobile}
                     className={cn(
-                      'flex items-center gap-3 px-3 py-2 text-xs font-semibold rounded-md transition-all group cursor-pointer',
+                      'flex items-center text-xs font-semibold rounded-md transition-all group cursor-pointer',
+                      isCollapsed
+                        ? 'justify-center w-10 h-10 mx-auto'
+                        : 'gap-3 px-3 py-2 w-full',
                       isActive
                         ? 'bg-[#FDC503] text-[#0A0A0A] shadow-xs font-bold'
                         : 'text-[#D4D4D4] hover:bg-[#262626] hover:text-white'
@@ -195,7 +198,9 @@ export function Sidebar({
 
                 return isCollapsed ? (
                   <Tooltip key={item.href} content={item.label} position="right">
-                    {linkElement}
+                    <div className="w-full flex justify-center">
+                      {linkElement}
+                    </div>
                   </Tooltip>
                 ) : (
                   linkElement
@@ -207,7 +212,7 @@ export function Sidebar({
       </div>
 
       {/* Footer com indicação do usuário e perfil ativo */}
-      <div className="p-3 border-t border-[#262626] bg-[#0A0A0A] space-y-2">
+      <div className={cn("border-t border-[#262626] bg-[#0A0A0A]", isCollapsed ? "p-2 overflow-x-hidden space-y-2" : "p-3 space-y-2")}>
         {!isCollapsed && user && (
           <div className="px-2 py-1 bg-[#171717] rounded border border-[#262626] text-[10px]">
             <p className="text-[#A3A3A3] truncate">{user.name}</p>
@@ -215,7 +220,7 @@ export function Sidebar({
           </div>
         )}
 
-        <div className="hidden md:flex items-center justify-between">
+        <div className={cn("hidden md:flex items-center", isCollapsed ? "justify-center w-full" : "justify-between")}>
           {!isCollapsed && (
             <span className="text-[10px] text-[#737373] font-medium truncate">
               Painel de Governança
@@ -223,7 +228,7 @@ export function Sidebar({
           )}
           <button
             onClick={onToggleCollapse}
-            className="p-1.5 rounded bg-[#262626] hover:bg-[#333333] text-[#D4D4D4] hover:text-white transition-colors cursor-pointer mx-auto"
+            className="p-1.5 rounded bg-[#262626] hover:bg-[#333333] text-[#D4D4D4] hover:text-white transition-colors cursor-pointer"
             title={isCollapsed ? 'Expandir menu' : 'Recolher menu'}
           >
             {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}

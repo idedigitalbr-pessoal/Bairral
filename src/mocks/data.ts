@@ -622,7 +622,80 @@ export const mockDashboardMetrics: DashboardMetrics = {
   ],
 };
 
+export const mockActionPlans = [
+  {
+    id: 'ap-101',
+    reportId: 'rep-1',
+    reportProtocol: 'GB-2025-001',
+    title: 'Treinamento sobre segurança do paciente na Enfermagem',
+    description: 'Realização de workshop de reciclagem sobre protocolos de medicação e atendimento empático com foco no Pavilhão Central.',
+    responsibleId: 'user-2',
+    responsibleName: 'Fernanda Lima',
+    status: 'IN_PROGRESS' as const,
+    progressPercentage: 40,
+    dueDate: '2026-07-28T18:00:00Z',
+    createdAt: '2025-02-10T10:00:00Z',
+    updatedAt: '2025-02-12T14:00:00Z',
+    daysOverdue: 4,
+    evidences: [
+      { name: 'lista_presenca_treinamento.pdf', uploadedAt: '2025-02-11T16:00:00Z' }
+    ]
+  },
+  {
+    id: 'ap-102',
+    reportId: 'rep-4',
+    reportProtocol: 'GB-2025-004',
+    title: 'Adequação dos processos de descarte no Pavilhão B',
+    description: 'Substituição das lixeiras hospitalares e instalação de sinalização visual ampliada para resíduos biológicos.',
+    responsibleId: 'user-3',
+    responsibleName: 'Roberto Mendes',
+    status: 'IN_PROGRESS' as const,
+    progressPercentage: 65,
+    dueDate: '2026-07-30T18:00:00Z',
+    createdAt: '2025-02-05T09:00:00Z',
+    updatedAt: '2025-02-14T11:00:00Z',
+    daysOverdue: 2,
+    evidences: []
+  },
+  {
+    id: 'ap-103',
+    reportId: 'rep-9',
+    reportProtocol: 'GB-2025-009',
+    title: 'Revisão do protocolo de acolhimento noturno',
+    description: 'Reunião de alinhamento com os supervisores de plantão para garantir preenchimento adequado da ficha de triagem.',
+    responsibleId: 'user-1',
+    responsibleName: 'Carlos Silva',
+    status: 'NOT_STARTED' as const,
+    progressPercentage: 0,
+    dueDate: '2026-08-15T18:00:00Z',
+    createdAt: '2025-02-12T15:00:00Z',
+    updatedAt: '2025-02-12T15:00:00Z',
+    daysOverdue: 0,
+    evidences: []
+  },
+  {
+    id: 'ap-104',
+    reportId: 'rep-2',
+    reportProtocol: 'GB-2025-002',
+    title: 'Auditoria de inventário do Almoxarifado de Insumos',
+    description: 'Recontagem física completa e reconciliação dos registros do sistema ERP com verificação de lacres.',
+    responsibleId: 'user-1',
+    responsibleName: 'Carlos Silva',
+    status: 'COMPLETED' as const,
+    progressPercentage: 100,
+    dueDate: '2025-02-01T18:00:00Z',
+    createdAt: '2025-01-20T08:00:00Z',
+    updatedAt: '2025-01-30T17:00:00Z',
+    validationNotes: 'Auditoria concluída e estoque reconciliado sem divergências materiais.',
+    daysOverdue: 0,
+    evidences: [
+      { name: 'relatorio_reconciliacao_estoque.pdf', uploadedAt: '2025-01-30T16:30:00Z' }
+    ]
+  },
+];
+
 export const mockSettings = {
+
   institutional: {
     organizationName: 'Instituto Psiquiátrico Bairral - Grupo Bairral',
     cnpj: '51.874.229/0001-40',
